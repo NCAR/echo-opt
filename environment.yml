@@ -1,0 +1,30 @@
+name: echo
+channels:
+ - conda-forge
+dependencies:
+  - python=3.8
+  - sphinx
+  - pytest
+  - setuptools
+  - optuna
+  - numpy
+  - scipy
+  - matplotlib
+  - seaborn
+  - xarray
+  - netcdf4
+  - tqdm
+  - dask
+  - scikit-learn
+  - jupyter
+  - jupyterlab
+  - jupyter_server
+  - distributed
+  - pip
+  - s3fs
+  - pyarrow
+  - torch
+  - torchvision
+  - pip:
+    - tensorflow
+    - .
