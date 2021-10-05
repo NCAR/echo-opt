@@ -1,0 +1,81 @@
+log:
+  save_path: "examples/torch/test/log.txt"
+
+slurm:
+  jobs: 1
+  batch:
+    account: "NAML0001"
+    gres: "gpu:v100:1"
+    mem: "128G"
+    n: 8
+    t: "12:00:00"
+    J: "hyper_opt"
+    o: "hyper_opt.out"
+    e: "hyper_opt.err"
+    
+optuna:
+  name: "holodec_optimization.db"
+  reload: 0
+  objective: "/glade/work/schreck/repos/aiml-utils/aimlutils/hyper_opt/examples/torch/objective.py"
+  direction: "minimize"
+  metric: "val_loss"
+  n_trials: 1
+  gpu: True
+  save_path: 'examples/torch/test'
+  sampler:
+    type: "TPESampler"
+  parameters:
+    num_dense:
+      type: "int"
+      settings:
+          name: "num_dense"
+          low: 0
+          high: 10
+    dense_hidden_dim1:
+      type: "int"
+      settings:
+        name: "dense_hidden_dim1"
+        low: 10
+        high: 10000
+    dense_hidden_dim2:
+      type: "int"
+      settings:
+        name: "dense_hidden_dim2"
+        low: 10
+        high: 5000
+    dr1:
+      type: "float"
+      settings:
+        name: "dr1"
+        low: 0.0
+        high: 0.5
+    dr2:
+      type: "float"
+      settings:
+        name: "dr1"
+        low: 0.0
+        high: 0.5
+    trainer:alpha:
+      type: "float"
+      settings:
+        name: "alpha"
+        low: 0.001
+        high: 1.0
+    trainer:beta:
+      type: "float"
+      settings:
+        name: "beta"
+        low: 0.001
+        high: 1.0
+    optimizer:lr:
+      type: "loguniform"
+      settings:
+        name: "lr"
+        low: 0.0000001
+        high: 0.01
+    optimizer:weight_decay:
+      type: "loguniform"
+      settings:
+        name: "weight_decay"
+        low: 0.00000001
+        high: 0.1
