@@ -1,0 +1,63 @@
+log: 'examples/torch/test'
+type: "encoder-vae"
+
+data:
+  path_data: "/glade/scratch/schreck/holodec/"
+  num_particles: "50-100"
+  maxnum_particles: 100
+  output_cols: ["x", "y", "z", "d", "binary"]
+  subset: False
+  
+transforms:
+  #RandomVerticalFlip: False
+  #RandomHorizontalFlip: False
+  Rescale: 600
+  Normalize: 'norm'
+  ToTensor: True
+
+iterator:
+  num_workers: 8
+  batch_size: 32
+  pin_memory: True
+  shuffle: True
+  
+model:
+  image_channels: 1
+  hidden_dims: [3, 94, 141, 471, 425, 1122]
+  z_dim: 1277
+  dense_hidden_dims: [1000]
+  dense_dropouts: [0.0]
+  tasks: ["x", "y", "z", "d", "binary"]
+  pretrained_model: "/glade/work/schreck/repos/holodec-ml/scripts/schreck/compressor/pretrained/pretrained.pt"
+
+optimizer:
+  type: "lookahead-diffgrad"
+  lr: 0.000631
+  weight_decay: 0.0
+
+callbacks:
+  MetricsLogger:
+    path_save: "test"
+    reload: False
+  EarlyStopping:
+    patience: 5
+    verbose: True
+    path_save: "examples/torch/test/checkpoint.pt"
+  ExponentialLR:
+    gamma: 0.95
+    
+#   ReduceLROnPlateau: 
+#     mode: "min"
+#     factor: 0.2
+#     patience: 1
+#     min_lr: 0.0000000001
+#     verbose: True
+
+trainer:
+  start_epoch: 0
+  epochs: 1
+  clip: 1.0
+  alpha: 1.0
+  beta: 0.1
+  path_save: "examples/torch/test"
+  test_image: "examples/torch/test/image_600.pkl"

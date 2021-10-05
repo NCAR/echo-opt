@@ -1,0 +1,45 @@
+path_data: "/glade/p/cisl/aiml/ai4ess_hackathon/holodec/"
+path_save: "examples/keras/results"
+model_name: "cnn"
+num_particles: 3
+random_seed: 328942
+output_cols: ["x", "y", "z", "d"]
+scaler_out: "StandardScaler"
+num_z_bins: 100
+subset: False
+conv2d_network:
+  filters: [8, 12, 16]
+  kernel_sizes: [5, 5, 5]
+  conv2d_activation: "leakyrelu"
+  pool_sizes: [5, 5, 5]
+  pool_dropout: 0.5
+  dense_sizes: [100, 50]
+  dense_dropout: 0.5
+  dense_activation: "leakyrelu"
+  output_activation: "linear"
+  lr: 0.0001
+  optimizer: "adam"
+  loss: "mse"
+  metrics: ["mse", "mae"]
+  batch_size: 128
+  epochs: 100
+  verbose: 1
+callbacks:
+  ModelCheckpoint:
+    monitor: "val_loss"
+    filepath: "examples/keras/results/model.h5"
+    save_best_only: True
+    save_weights_only: True
+  EarlyStopping:
+    monitor: "val_loss"
+    patience: 4
+  ReduceLROnPlateau: 
+    monitor: "val_loss"
+    factor: 0.2
+    patience: 1
+    min_lr: 0.0000001
+    mode: "auto"
+  CSVLogger:
+    filename: "examples/keras/results/training.txt"
+    separator: " "
+    append: True

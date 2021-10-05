@@ -1,0 +1,99 @@
+log:
+  save_path: "examples/keras/results/log.txt"
+
+slurm:
+  jobs: 1
+  batch:
+    account: "NAML0001"
+    gres: "gpu:v100:1"
+    mem: "128G"
+    n: 8
+    t: "12:00:00"
+    J: "hyper_opt"
+    o: "hyper_opt.out"
+    e: "hyper_opt.err"
+    
+optuna:
+  name: "holodec_optimization.db"
+  reload: 1
+  objective: "/glade/work/schreck/repos/aiml-utils/aimlutils/hyper_opt/examples/keras/objective.py"
+  direction: "minimize"
+  metric: "val_loss"
+  n_trials: 500
+  gpu: True
+  save_path: 'examples/keras/results'
+  sampler:
+    type: "TPESampler"
+  parameters:
+    conv2d_network:lr:
+      type: "loguniform"
+      settings:
+        name: "lr"
+        low: 0.0000001
+        high: 0.01
+    filter1:
+      type: "int"
+      settings:
+          name: "filter1"
+          low: 1
+          high: 64
+    filter2:
+      type: "int"
+      settings:
+          name: "filter2"
+          low: 1
+          high: 64
+    filter3:
+      type: "int"
+      settings:
+          name: "filter3"
+          low: 1
+          high: 64
+    kernel1:
+      type: "int"
+      settings:
+          name: "kernel1"
+          low: 1
+          high: 10
+    kernel2:
+      type: "int"
+      settings:
+          name: "kernel2"
+          low: 1
+          high: 10
+    kernel3:
+      type: "int"
+      settings:
+          name: "kernel3"
+          low: 1
+          high: 10
+    pool1:
+      type: "int"
+      settings:
+          name: "pool1"
+          low: 1
+          high: 50
+    pool2:
+      type: "int"
+      settings:
+          name: "pool1"
+          low: 1
+          high: 50
+    pool3:
+      type: "int"
+      settings:
+          name: "pool1"
+          low: 1
+          high: 50
+    dense1:
+      type: "int"
+      settings:
+        name: "dense1"
+        low: 10
+        high: 10000
+    dense2:
+      type: "int"
+      settings:
+        name: "dense2"
+        low: 10
+        high: 5000
