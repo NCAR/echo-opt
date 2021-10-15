@@ -6,5 +6,5 @@ setup(name="echo-opt",
       author="John Schreck, David John Gagne, Charlie Becker, Gabrielle Gantos, Keely Lawrence",
       license="MIT",
       url="https://github.com/NCAR/echo-opt",
-      packages=["echo"],
+      packages=["echo", "echo/src"],
       )
