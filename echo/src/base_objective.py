@@ -1,7 +1,7 @@
 import warnings
 warnings.filterwarnings("ignore")
 
-from aimlutils.echo.src.trial_suggest import trial_suggest_loader
+from echo.src.trial_suggest import trial_suggest_loader
 from collections import defaultdict
 import copy, os, sys, random
 import pandas as pd 

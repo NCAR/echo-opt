@@ -1,11 +1,11 @@
 import warnings
 warnings.filterwarnings("ignore")
 
-from aimlutils.echo.src.samplers import samplers
-from aimlutils.utils.gpu import gpu_report
+from echo.src.samplers import samplers
 import importlib.machinery
 import pandas as pd
 import numpy as np
+import subprocess
 import logging
 import optuna
 import time
@@ -15,6 +15,25 @@ import sys
 import os
 
 start_the_clock = time.time()
+
+
+def gpu_report():
+    """Get the current gpu usage.
+
+    Returns
+    -------
+    usage: dict
+        Keys are device ids as integers.
+        Values are memory usage as integers in MB.
+    """
+    cmd = ['nvidia-smi', '--query-gpu=memory.free','--format=csv,nounits,noheader']
+    result = subprocess.check_output(cmd)
+    result = result.decode('utf-8')
+    # Convert lines into a dictionary
+    gpu_memory = [int(x) for x in result.strip().split('\n')]
+    gpu_memory_map = dict(zip(range(len(gpu_memory)), gpu_memory))
+    return gpu_memory_map
+
 
 def get_sec(time_str):
     """Get Seconds from time."""

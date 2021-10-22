@@ -9,7 +9,7 @@ import logging
 import subprocess
 import numpy as np
 from argparse import ArgumentParser
-from aimlutils.echo.src.samplers import samplers
+from echo.src.samplers import samplers
 #from aimlutils.echo.src.pruners import pruners
 from typing import Dict
 
