@@ -4,19 +4,19 @@ The MariaDB server is accessible from the clusters, but you cannot login to Mari
 
 Example commands:
 
-mysql -u schreck -p -h thunder.ucar.edu -D optuna -e 'show tables'
-mysql -u schreck -p -h thunder.ucar.edu -D optuna -e 'select * from studies'
+mysql -u schreck -p -h yourhost -D optuna -e 'show tables'
+mysql -u schreck -p -h yourhost -D optuna -e 'select * from studies'
 
 etc.
 
 Optuna usage:
 
 study = optuna.create_study(
-    study_name="example", storage="mysql://schreck:l3tm31n@thunder.ucar.edu/optuna"
+    study_name="example", storage="mysql://username:password@yourhost/optuna"
 )
 
 optuna.delete_study(
-    study_name="example", storage="mysql://schreck:l3tm31n@thunder.ucar.edu/optuna"
+    study_name="example", storage="mysql://username:password@yourhost/optuna"
 )
 
 https://www.guru99.com/data-warehousing-tutorial.html
