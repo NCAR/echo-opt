@@ -1,10 +1,9 @@
+from tensorflow.keras.callbacks import Callback
+from typing import Dict
+import logging
+import optuna
 import warnings
 warnings.filterwarnings("ignore")
-
-import sys
-import optuna
-import logging
-from tensorflow.keras.callbacks import Callback
 
 
 logger = logging.getLogger(__name__)
@@ -12,6 +11,7 @@ logger = logging.getLogger(__name__)
 supported_pruners = [
     "MedianPruner"
 ]
+
 
 def pruners(pruner):
     _type = pruner.pop("type")
@@ -21,12 +21,11 @@ def pruners(pruner):
         raise OSError(message)
     if _type == "Median":
         return optuna.pruners.MedianPruner(**pruner)
-    
-    
+
+
 class KerasPruningCallback(Callback):
 
-    def __init__(self, trial, monitor, interval = 1):
-        # type: (optuna.trial.Trial, str) -> None
+    def __init__(self, trial, monitor, interval=1):
 
         super(KerasPruningCallback, self).__init__()
 

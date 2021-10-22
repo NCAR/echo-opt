@@ -1,9 +1,7 @@
+import logging
+import optuna
 import warnings
 warnings.filterwarnings("ignore")
-
-import sys
-import optuna
-import logging
 
 
 logger = logging.getLogger(__name__)
@@ -31,7 +29,8 @@ def samplers(sampler):
         return optuna.samplers.TPESampler(**sampler)
     elif _type == "GridSampler":
         if "search_space" not in sampler:
-            raise OSError("You must provide search_space options with the GridSampler.")
+            raise OSError(
+                "You must provide search_space options with the GridSampler.")
         else:
             return optuna.samplers.GridSampler(**sampler)
     elif _type == "RandomSampler":

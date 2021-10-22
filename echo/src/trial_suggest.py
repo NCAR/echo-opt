@@ -1,9 +1,6 @@
+import logging
 import warnings
 warnings.filterwarnings("ignore")
-
-import sys
-import optuna
-import logging
 
 
 logger = logging.getLogger(__name__)
@@ -20,7 +17,7 @@ supported_trials = [
 
 
 def trial_suggest_loader(trial, config):
-    
+
     try:
         _type = config["type"]
         if _type == "categorical":
@@ -35,7 +32,7 @@ def trial_suggest_loader(trial, config):
             return float(trial.suggest_loguniform(**config["settings"]))
         elif _type == "uniform":
             return float(trial.suggest_uniform(**config["settings"]))
-        else: #if _type not in supported_trials:
+        else:  # if _type not in supported_trials:
             message = f"Type {_type} is not valid. Select from {supported_trials}"
             logger.warning(message)
             raise OSError(message)
