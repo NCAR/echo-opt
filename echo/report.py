@@ -134,11 +134,7 @@ def plot_wrapper(study: optuna.study.Study,
 
 if __name__ == "__main__":
     
-    if len(sys.argv) < 2:
-        raise OSError(
-            "Usage: python report.py hyperparameter.yml [optional arguments]"
-            "To see the available parser options: python report.py --help"
-        )
+    assert len(sys.argv) >= 2: "Usage: python report.py hyperparameter.yml [optional arguments]. To see the available parser options: python report.py --help"
     
     args_dict = args()
 
@@ -150,23 +146,15 @@ if __name__ == "__main__":
     max_depth = args_dict.pop("max_depth")
 
     # Check if hyperparameter config file exists
-    if os.path.isfile(hyper_config):
-        with open(hyper_config) as f:
-            hyper_config = yaml.load(f, Loader=yaml.FullLoader)
-    else:
-        raise OSError(
-            f"Hyperparameter optimization config file {hyper_config} does not exist"
-        )
+    assert os.path.isfile(hyper_config), f"Hyperparameter optimization config file {hyper_config} does not exist"
+    with open(hyper_config) as f:
+        hyper_config = yaml.load(f, Loader=yaml.FullLoader)
         
     if plot_config is not False:
-        if os.path.isfile(plot_config):
-            with open(plot_config) as p:
-                plot_config = yaml.load(p, Loader=yaml.FullLoader)
-        else:
-            raise OSError(
-            f"Hyperparameter optimization plot file {plot_config} does not exist"
-            )
-        
+        # Check if plot config file exists
+        assert os.path.isfile(plot_config), f"Hyperparameter optimization plot file {plot_config} does not exist"
+        with open(plot_config) as p:
+            plot_config = yaml.load(p, Loader=yaml.FullLoader)
     
     # Set up a logger
     root = logging.getLogger()
@@ -189,9 +177,6 @@ if __name__ == "__main__":
     single_objective = isinstance(direction, str)
 
     # Load from database
-    #storage = f'postgresql+psycopg2://john:schreck@localhost/{cached_study}'
-    #storage = f"sqlite:///{cached_study}"
-
     if single_objective:
         study = optuna.load_study(study_name=study_name, storage=storage)
     else:
@@ -250,14 +235,10 @@ if __name__ == "__main__":
     study.trials_dataframe().to_csv(save_fn, index = None)
 
     if single_objective:
-        
         # Plot the optimization_history
         plot_wrapper(study, "optimization_history", save_path, plot_config)
-
         # Plot the intermediate_values
         plot_wrapper(study, "intermediate_values", save_path, plot_config)
-
     else:
         # Plot the pareto front
         plot_wrapper(study, "pareto_front", save_path, plot_config)
-        

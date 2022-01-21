@@ -9,7 +9,9 @@ import logging
 import optuna
 
 
+
 logger = logging.getLogger(__name__)
+
 
 
 def recursive_update(nested_keys, dictionary, update):
@@ -29,19 +31,22 @@ class BaseObjective:
         
         self.results = defaultdict(list)
         save_path = config["optuna"]["save_path"]
-        self.results_fn = os.path.join(save_path, f"hyper_opt_{random.randint(0, 1e5)}.csv")
+        worker_index = len(glob.glob(os.path.join(save_path, f"worker_*")))
+        self.results_fn = os.path.join(save_path, f"worker_{worker_index}.csv")
         while os.path.isfile(self.results_fn):
-            rand_index = random.randint(0, 1e5)
-            self.results_fn = os.path.join(save_path, f"hyper_opt_{rand_index}.csv")
+            worker_index += 1
+            self.results_fn = os.path.join(save_path, f"worker_{worker_index}.csv")
+        self.worker_index = worker_index
             
-        logger.info(f"Initialized an objective to be optimized with metric {metric}")
-        logger.info(f"Using device {device}")
-        logger.info(f"Saving study/trial results to local file {self.results_fn}")
+        logger.info(f"Worker {worker_index} is summoned.")
+        logger.info(f"Worker {worker_index} initialized an objective to be optimized with metric {metric}")
+        logger.info(f"Worker {worker_index} is using device {device}")
+        logger.info(f"Worker {worker_index} is saving study/trial results to local file {self.results_fn}")
     
     def update_config(self, trial):
         
         logger.info(
-            f"Attempting to automatically update the model configuration using optuna's suggested parameters"
+            f"Worker {self.worker_index} is attempting to automatically update the model configuration using optuna's suggested parameters"
         )
         
         # Make a copy the config that we can edit
@@ -62,26 +67,18 @@ class BaseObjective:
                     conf[named_parameter] = trial_suggest_loader(trial, update)
                     updated.append(named_parameter)
                     
-        logger.info(f"Those that got updated automatically: {updated}")
+        logger.info(f"... those that got updated automatically: {updated}")
         return conf
-        
-#     #Deprecated as of writing of report.py script 
 
     def save(self, trial, results_dict):
         
         # Make sure the relevant metric was placed into the results dictionary
         single_objective = isinstance(self.metric, str)
         if single_objective:
-            if self.metric not in results_dict:
-                raise OSError(
-                    "You must return the metric result to the hyperparameter optimizer"
-                )
+            assert self.metric in results_dict, f"You must return the metric {self.metric} result to the hyperparameter optimizer"
         else:
             for metric in self.metric:
-                if metric not in results_dict:
-                    raise OSError(
-                        "You must return the metric result to the hyperparameter optimizer"
-                    )
+                assert metric in results_dict, f"You must return the metric {metric} result to the hyperparameter optimizer"
         
         # Save the hyperparameters used in the trial
         self.results["trial"].append(trial.number)
@@ -94,13 +91,12 @@ class BaseObjective:
             
         # Save pruning boolean
         self.results["pruned"] = int(trial.should_prune())
-        #self.results["complete"] = int(trial.state == optuna.trial.TrialState.COMPLETE)
         
         # Save the df of results to disk
         pd.DataFrame.from_dict(self.results).to_csv(self.results_fn)
         
         logger.info(
-            f"Saving trial {trial.number} results to local file {self.results_fn}"
+            f"Worker {self.worker_index}  is saving trial {trial.number} results to local file {self.results_fn}"
         )
         
         if single_objective:
@@ -115,12 +111,13 @@ class BaseObjective:
         
         # Train the model
         logger.info(
-            f"Beginning to train the model using the latest parameters from optuna"
+            f"Worker {self.worker_index} is beginning to train the model using the latest parameters from optuna"
         )
         
         result = self.train(trial, conf)
         
         return self.save(trial, result)
+    
     
     def train(self, trial, conf):
         raise NotImplementedError

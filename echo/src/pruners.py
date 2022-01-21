@@ -5,38 +5,53 @@ import sys
 import optuna
 import logging
 from tensorflow.keras.callbacks import Callback
+from optuna.pruners.__init__  import __all__ as supported_pruners
+from optuna.pruners._base import BasePruner
+from optuna.pruners._hyperband import HyperbandPruner
+from optuna.pruners._median import MedianPruner
+from optuna.pruners._nop import NopPruner
+from optuna.pruners._patient import PatientPruner
+from optuna.pruners._percentile import PercentilePruner
+from optuna.pruners._successive_halving import SuccessiveHalvingPruner
+from optuna.pruners._threshold import ThresholdPruner
 
 
 logger = logging.getLogger(__name__)
 
-supported_pruners = [
-    "MedianPruner"
-]
 
 def pruners(pruner):
     _type = pruner.pop("type")
-    if _type not in supported_pruners:
-        message = f"Pruner {_type} is not valid. Select from {supported_pruners}"
-        logger.warning(message)
-        raise OSError(message)
-    if _type == "Median":
+    
+    assert _type in supported_pruners, f"Pruner {_type} is not valid. Select from {supported_pruners}"
+
+    if _type == "BasePruner":
+        return optuna.pruners.BasePruner(**pruner)
+    if _type == "HyperbandPruner":
+        return optuna.pruners.HyperbandPruner(**pruner)
+    if _type == "MedianPruner":
         return optuna.pruners.MedianPruner(**pruner)
+    if _type == "NopPruner":
+        return optuna.pruners.NopPruner(**pruner)
+    if _type == "PatientPruner":
+        return optuna.pruners.PatientPruner(**pruner)
+    if _type == "PercentilePruner":
+        return optuna.pruners.PercentilePruner(**pruner)
+    if _type == "SuccessiveHalvingPruner":
+        return optuna.pruners.SuccessiveHalvingPruner(**pruner)
+    if _type == "ThresholdPruner":
+        return optuna.pruners.ThresholdPruner(**pruner)
     
     
 class KerasPruningCallback(Callback):
-
     def __init__(self, trial, monitor, interval = 1):
         # type: (optuna.trial.Trial, str) -> None
-
         super(KerasPruningCallback, self).__init__()
-
         self.trial = trial
         self.monitor = monitor
         self.interval = interval
 
     def on_epoch_end(self, epoch, logs=None):
         # type: (int, Dict[str, float]) -> None
-
         logs = logs or {}
         current_score = logs.get(self.monitor)
         if current_score is None:

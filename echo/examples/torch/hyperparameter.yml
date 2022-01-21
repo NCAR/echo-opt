@@ -3,6 +3,7 @@ log:
 
 slurm:
   jobs: 1
+  trials_per_job: 1
   batch:
     account: "NAML0001"
     gres: "gpu:v100:1"

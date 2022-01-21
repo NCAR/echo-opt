@@ -10,7 +10,7 @@ import subprocess
 import numpy as np
 from argparse import ArgumentParser
 from echo.src.samplers import samplers
-#from aimlutils.echo.src.pruners import pruners
+from echo.src.pruners import pruners
 from typing import Dict
 
 
@@ -112,7 +112,8 @@ def fix_broken_study(_study: optuna.study.Study,
                      name: str, 
                      storage: str, 
                      direction: str, 
-                     sampler: optuna.samplers.BaseSampler):
+                     sampler: optuna.samplers.BaseSampler, 
+                     pruner: optuna.pruners.NopPruner):
     
     """
         This method removes broken trials, which are those 
@@ -130,30 +131,14 @@ def fix_broken_study(_study: optuna.study.Study,
     trials = []
     removed = []
     for trial in _study.trials:
-        
         if trial.state == optuna.trial.TrialState.COMPLETE:
             trials.append(trial)
             continue
-            
-#         if trial.state == optuna.trial.TrialState.RUNNING:
-#             trial.state = optuna.trial.TrialState.COMPLETE
-#             trial.value = min(trial.intermediate_values.values())
-#             trial.datetime_complete = "2021-09-15 20:17:23.520538"
-#             trial.duration = "0 days 06:03:39.133868"
-#             trials.append(trial)
-#             removed.append(1)
-        
         if len(trial.intermediate_values) == 0:
             trials.append(trial)
-#             removed.append(trial)
             continue
-            
-#         if trial.state == optuna.trial.TrialState.FAIL:
-#             trial.state = optuna.trial.TrialState.COMPLETE
-#             trials.append(trial)
-            
         step, intermediate_value = max(trial.intermediate_values.items())
-        if (intermediate_value is not None):# and (np.isfinite(intermediate_value)):
+        if (intermediate_value is not None): # and (np.isfinite(intermediate_value)):
             trials.append(trial)
         else:
             removed.append(trial.number+1)
@@ -170,6 +155,7 @@ def fix_broken_study(_study: optuna.study.Study,
                                       storage=storage, 
                                       direction=direction,
                                       sampler=sampler,
+                                          pruner=pruner,
                                       load_if_exists=False)
     else:
         study_fixed = optuna.multi_objective.create_study(
@@ -177,6 +163,7 @@ def fix_broken_study(_study: optuna.study.Study,
             storage=storage,
             directions=direction,
             sampler=sampler,
+            pruner=pruner,
             load_if_exists=False
         )
     
@@ -207,12 +194,18 @@ def prepare_slurm_launch_script(hyper_config: str,
         os.path.abspath(opt.__file__).strip("__init__.py"), 
         "run.py"
     )
-    slurm_options.append(f"python {aiml_path} {sys.argv[1]} {sys.argv[2]}")
+    if "trials_per_job" in hyper_config["slurm"]:
+        for copy in hyper_config["slurm"]["trials_per_job"]:
+            slurm_options.append(f"python {aiml_path} {sys.argv[1]} {sys.argv[2]} &")
+            slurm_options.append(f"sleep 30") # allow some time between calling instances of run
+        slurm_options.append(f"wait")
+    else:
+        slurm_options.append(f"python {aiml_path} {sys.argv[1]} {sys.argv[2]}")
     return slurm_options
 
 
-def prepare_pbs_launch_script(hyper_config: str, 
-                                model_config: str):
+def prepare_pbs_launch_script(hyper_config: str,
+                              model_config: str):
     
     pbs_options = ["#!/bin/bash -l"]
     for arg, val in hyper_config["pbs"]["batch"].items():
@@ -235,11 +228,17 @@ def prepare_pbs_launch_script(hyper_config: str,
         os.path.abspath(opt.__file__).strip("__init__.py"), 
         "run.py"
     )
-    pbs_options.append(f"python {aiml_path} {sys.argv[1]} {sys.argv[2]}")
+    if "trials_per_job" in hyper_config["slurm"]:
+        for copy in hyper_config["slurm"]["trials_per_job"]:
+            pbs_options.append(f"python {aiml_path} {sys.argv[1]} {sys.argv[2]} &")
+            pbs_options.append(f"sleep 30") # allow some time between calling instances of run
+        pbs_options.append(f"wait")
+    else:
+        pbs_options.append(f"python {aiml_path} {sys.argv[1]} {sys.argv[2]}")
     return pbs_options
 
 
-def configuration_report(_dict: Dict[str, str], 
+def recursive_config_reader(_dict: Dict[str, str], 
                          path: bool = None):
     
     if path is None:
@@ -247,7 +246,7 @@ def configuration_report(_dict: Dict[str, str],
     for k,v in _dict.items():
         newpath = path + [k]
         if isinstance(v, dict):
-            for u in configuration_report(v, newpath):
+            for u in recursive_config_reader(v, newpath):
                 yield u
         else:
             yield newpath, v
@@ -260,26 +259,15 @@ if __name__ == "__main__":
     hyper_config = args_dict.pop("hyperparameter")
     model_config = args_dict.pop("model")
 
-    if not hyper_config or not model_config:
-        raise OSError(
-            "Usage: python main.py hyperparameter.yml model.yml [optional parser options]"
-        )
+    assert (hyper_config and model_config), "Usage: python main.py hyperparameter.yml model.yml [optional parser options]"
 
-    if os.path.isfile(hyper_config):
-        with open(hyper_config) as f:
-            hyper_config = yaml.load(f, Loader=yaml.FullLoader)
-    else:
-        raise OSError(
-            f"Hyperparameter optimization config file {sys.argv[1]} does not exist"
-        )
+    assert os.path.isfile(hyper_config), f"Hyperparameter optimization config file {hyper_config} does not exist"
+    with open(hyper_config) as f:
+        hyper_config = yaml.load(f, Loader=yaml.FullLoader)
 
-    if os.path.isfile(model_config):
-        with open(model_config) as f:
-            model_config = yaml.load(f, Loader=yaml.FullLoader)
-    else:
-        raise OSError(
-            f"Model config file {sys.argv[1]} does not exist"
-        )        
+    assert os.path.isfile(model_config), f"Model config file {model_config} does not exist"
+    with open(model_config) as f:
+        model_config = yaml.load(f, Loader=yaml.FullLoader)       
         
     # Set up a logger
     root = logging.getLogger()
@@ -314,11 +302,11 @@ if __name__ == "__main__":
         
     # Print the configurations to the logger
     logging.info("Current hyperparameter configuration settings:")
-    for p, v in configuration_report(hyper_config):
+    for p, v in recursive_config_reader(hyper_config):
         full_path = ".".join([str(_p) for _p in p])
         logging.info(f"{full_path}: {v}")
     logging.info("Current model configuration settings:")
-    for p, v in configuration_report(model_config):
+    for p, v in recursive_config_reader(model_config):
         full_path = ".".join([str(_p) for _p in p])
         logging.info(f"{full_path}: {v}")
         
@@ -332,8 +320,6 @@ if __name__ == "__main__":
         )
         
     study_name = hyper_config["optuna"]["study_name"]
-    #path_to_study = os.path.join(hyper_config["optuna"]["save_path"], name)
-    #storage = f"sqlite:///{path_to_study}"
     storage = hyper_config["optuna"]["storage"]
     direction = hyper_config["optuna"]["direction"]
     single_objective = isinstance(direction, str)
@@ -346,6 +332,11 @@ if __name__ == "__main__":
             sampler = optuna.multi_objective.samplers.MOTPEMultiObjectiveSampler()
     else:
         sampler = samplers(hyper_config["optuna"]["sampler"])
+        
+    if "pruner" not in hyper_config["optuna"]:
+        pruner = optuna.pruners.NopPruner()
+    else:
+        pruner = pruners(hyper_config["optuna"]["pruner"])
 
     # Initiate a study for the first time
     if not reload_study:
@@ -353,6 +344,7 @@ if __name__ == "__main__":
         # Check the direction
         if isinstance(direction, list):
             for direc in direction:
+                assert 
                 if direc not in ["maximize", "minimize"]:
                     raise OSError(
                     f"Optimizer direction {direc} not recognized. Choose from maximize or minimize"
@@ -369,8 +361,8 @@ if __name__ == "__main__":
             optuna.load_study(
                 study_name = study_name,
                 storage = storage,
-                #direction = direction,
-                sampler = sampler
+                sampler = sampler,
+                pruner = pruner
             )
         except KeyError: # The study name was not in storage, can proceed
             pass
@@ -382,7 +374,8 @@ if __name__ == "__main__":
                     study_name = study_name,
                     storage = storage,
                     direction = direction,
-                    sampler = sampler
+                    sampler = sampler,
+                    pruner = pruner
             )
             else:
                 message = f"The study {study_name} already exists in storage and reload was False."
@@ -407,10 +400,7 @@ if __name__ == "__main__":
             )
             
     # Check to see if there are any broken trials
-    else:
-        #if not os.path.isfile(path_to_study):
-        #    raise OSError("Reload was true but the study does not yet exist. Set reload = 0 and try again.")
-            
+    else:  
         logging.info(
             f"Checking the study for broken trials (those that did not complete 1 epoch before dying)"
         )
@@ -418,15 +408,17 @@ if __name__ == "__main__":
             study = optuna.load_study(
                 study_name = study_name,
                 storage = storage, 
-                sampler = sampler
+                sampler = sampler,
+                pruner = pruner,
             )
         else:
             study = optuna.multi_objective.study.load_study(
                 study_name = study_name,
                 storage = storage, 
-                sampler = sampler
+                sampler = sampler,
+                pruner = pruner,
             )
-        study, removed = fix_broken_study(study, study_name, storage, direction, sampler)
+        study, removed = fix_broken_study(study, study_name, storage, direction, sampler, pruner)
         
         if len(removed):
             logging.info(

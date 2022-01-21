@@ -69,6 +69,7 @@ There are several fields: log, slurm, pbs, optuna, and variable subfields within
 
 pbs:
   jobs: 10
+  trials_per_job: 4
   kernel: "ncar_pylib /glade/work/schreck/py37"
   bash: ["module load ncarenv/1.3 gnu/8.3.0 openmpi/3.1.4 python/3.7.5 cuda/10.1"]
   batch:
@@ -80,6 +81,7 @@ pbs:
     e: "echo_trial.err"
 slurm:
   jobs: 15
+  trials_per_job: 4
   kernel: "ncar_pylib /glade/work/schreck/py37"
   bash: ["module load ncarenv/1.3 gnu/8.3.0 openmpi/3.1.4 python/3.7.5 cuda/10.1"]
   batch:
@@ -104,6 +106,11 @@ optuna:
   sampler:
     type: "TPESampler"
     n_startup_trials: 30 
+  pruner:
+    type: "ThresholdPruner"
+    upper: 2.0
+    n_warmup_steps: 0
+    interval_steps: 1
   parameters:
     num_dense:
       type: "int"
@@ -132,7 +139,9 @@ log [optional]:
   save_path: "path/to/data/log.txt"
 ```
 
-The subfields within "pbs" and slurm" should mostly be familiar to you. In this example there would be 10 jobs submitted to pbs queue and 15 jobs to the slurm queue. The kernel field is optional and can be any call(s) to activate a conda/python/ncar_pylib/etc environment. Additional snippets that you might need in your launch script can be added to the list in the "bash" field. For example, as in the example above, loading modules before training a model is required. Note that the bash options will be run in order, and before the kernel field. Remove or leave the kernel field blank if you do not need it.
+The subfields within "pbs" and slurm" should mostly be familiar to you. In this example there would be 10 jobs submitted to pbs queue and 15 jobs to the slurm queue. In both cases, there will be 4 "trials_per_job" run simultanously per job. It is (currently) your responsibility to manage how many trails to run per job. For example, if you ask for too many jobs and are using a single GPU, you may observe errors due to memory overflow. 
+
+The kernel field is optional and can be any call(s) to activate a conda/python/ncar_pylib/etc environment. Additional snippets that you might need in your launch script can be added to the list in the "bash" field. For example, as in the example above, loading modules before training a model is required. Note that the bash options will be run in order, and before the kernel field. Remove or leave the kernel field blank if you do not need it.
 
 The subfields within the "optuna" field have the following functionality:
 
@@ -147,6 +156,8 @@ The subfields within the "optuna" field have the following functionality:
 * save_path: Directory path where data will be saved. 
 * sampler
   + type: Choose how optuna will do parameter estimation. The default choice both here and in optuna is the [Tree-structured Parzen Estimator Approach](https://towardsdatascience.com/a-conceptual-explanation-of-bayesian-model-based-hyperparameter-optimization-for-machine-learning-b8172278050f), [e.g. TPESampler](https://papers.nips.cc/paper/4443-algorithms-for-hyper-parameter-optimization.pdf). See the optuna documentation for the different options. For some samplers (e.g. GridSearch) additional fields may be included (e.g. search_space). 
+* pruner: 
+  + type: Choose which pruner to use with optuna. The default choice is to use no pruning. See the optuna documentation for the different options.
 * parameters
   + type: Option to select an optuna trial setting. See the [optuna Trial documentation](https://optuna.readthedocs.io/en/stable/reference/generated/optuna.trial.Trial.html?highlight=suggest#optuna.trial.Trial.suggest_uniform) for what is available. Currently, this package supports the available options from optuna: "categorical", "discrete_uniform", "float", "int", "loguniform", and "uniform".
   + settings: This dictionary field allows you to specify any settings that accompany the optuna trial type. In the example above, the named num_dense parameter is stated to be an integer with values ranging from 0 to 10. To see all the available options, consolt the [optuna Trial documentation](https://optuna.readthedocs.io/en/stable/reference/generated/optuna.trial.Trial.html?highlight=suggest#optuna.trial.Trial.suggest_uniform)

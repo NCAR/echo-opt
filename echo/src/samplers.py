@@ -2,48 +2,49 @@ import warnings
 warnings.filterwarnings("ignore")
 
 import sys
-import optuna
 import logging
+
+from optuna.samplers.__init__  import __all__ as supported_samplers
+from optuna.samplers._base import BaseSampler
+from optuna.samplers._cmaes import CmaEsSampler
+from optuna.samplers._grid import GridSampler
+from optuna.samplers._nsga2.sampler import NSGAIISampler
+from optuna.samplers._partial_fixed import PartialFixedSampler
+from optuna.samplers._random import RandomSampler
+from optuna.samplers._search_space import intersection_search_space
+from optuna.samplers._search_space import IntersectionSearchSpace
+from optuna.samplers._tpe.multi_objective_sampler import MOTPESampler
+from optuna.samplers._tpe.sampler import TPESampler
 
 
 logger = logging.getLogger(__name__)
 
 
-supported_samplers = [
-    "TPESampler",
-    "GridSampler",
-    "RandomSampler",
-    "CmaEsSampler",
-    "IntersectionSearchSpace",
-    "MOTPEMultiObjectiveSampler",
-    "NSGAIIMultiObjectiveSampler",
-    "RandomMultiObjectiveSampler"
-]
-
-
 def samplers(sampler):
     _type = sampler.pop("type")
-    if _type not in supported_samplers:
-        message = f"Sampler {_type} is not valid. Select from {supported_samplers}"
-        logger.warning(message)
-        raise OSError(message)
+    
+    assert _type in supported_samplers, f"Sampler {_type} is not valid. Select from {supported_samplers}"
+    
     if _type == "TPESampler":
-        return optuna.samplers.TPESampler(**sampler)
-    elif _type == "GridSampler":
+        return TPESampler(**sampler)
+    if _type == "GridSampler":
         if "search_space" not in sampler:
             raise OSError("You must provide search_space options with the GridSampler.")
         else:
-            return optuna.samplers.GridSampler(**sampler)
-    elif _type == "RandomSampler":
-        return optuna.samplers.RandomSampler(**sampler)
-    elif _type == "CmaEsSampler":
-        return optuna.integration.CmaEsSampler(**sampler)
-    elif _type == "IntersectionSearchSpace":
-        return optuna.integration.IntersectionSearchSpace(**sampler)
-    # support for multi-objective studies
-    elif _type == "MOTPEMultiObjectiveSampler":
-        return optuna.multi_objective.samplers.MOTPEMultiObjectiveSampler(**sampler)
-    elif _type == "NSGAIIMultiObjectiveSampler":
-        return optuna.multi_objective.samplers.NSGAIIMultiObjectiveSampler(**sampler)
-    elif _type == "RandomMultiObjectiveSampler":
-        return optuna.multi_objective.samplers.RandomMultiObjectiveSampler(**sampler)
+            return GridSampler(**sampler)
+    if _type == "RandomSampler":
+        return RandomSampler(**sampler)
+    if _type == "CmaEsSampler":
+        return CmaEsSampler(**sampler)
+    if _type == "IntersectionSearchSpace":
+        return IntersectionSearchSpace(**sampler)
+    if _type == "MOTPESampler":
+        return MOTPESampler(**sampler)
+    if _type == "BaseSampler":
+        return BaseSampler(**sampler)
+    if _type == "NSGAIISampler":
+        return NSGAIISampler(**sampler)
+    if _type == "PartialFixedSampler":
+        return PartialFixedSampler(**sampler)
+    if _type == "intersection_search_space":
+        return intersection_search_space(**sampler)
