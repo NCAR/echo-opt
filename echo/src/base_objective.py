@@ -102,7 +102,7 @@ class BaseObjective:
         if single_objective:
             return results_dict[self.metric]
         else:
-            return [result[metric] for metric in self.metric]
+            return [self.results[metric] for metric in self.metric]
     
     def __call__(self, trial):
         

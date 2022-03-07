@@ -1,4 +1,4 @@
-import os
+gpuimport os
 import sys
 import yaml
 import glob
@@ -156,7 +156,7 @@ def main():
                 key=lambda x: x[1],
                 reverse=True
             )
-            device = gpu_report[0][0]
+            device = gpu_report[0][1]
         except:
             logging.warning(
                 "The gpu is not responding to a call from nvidia-smi.\

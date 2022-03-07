@@ -12,7 +12,7 @@ python report.py hyperparameters.yml [-p plot_config.yml]
 ```
 ### Dependencies
 
-There are three files that must be supplied to use the optimize script:
+There are three files that must be supplied to use echo-opt:
 
 * A custom objective class that trains your model and returns the metric to be optimized.
 
@@ -25,8 +25,8 @@ There are three files that must be supplied to use the optimize script:
 The custom **Objective** class (objective.py) must inherit a **BaseObjective** class (which lives in base_objective.py), and must contain a method named **train** that returns the value of the optimization metric (in a dictionary, see below). There are example objective scripts for both torch and Keras in the examples directory. Your custom Objective class will inherit all of the methods and attributes from the BaseObjective. The Objective's train does not depend on the machine learning library used! For example, a simple template has the following structure:
 
 ```python
-from aimlutils.echo.src.base_objective import *
-from aimlutils.echo.src.pruning import KerasPruningCallback
+from echo.src.base_objective import *
+from echo.src.pruning import KerasPruningCallback
 
 class Objective(BaseObjective):
 
