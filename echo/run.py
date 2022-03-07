@@ -1,18 +1,18 @@
+import os
+import sys
+import yaml
+import glob
+import time
+import optuna
+import logging
+import subprocess
+import numpy as np
+import pandas as pd
+import importlib.machinery
+from echo.src.pruners import pruners
+from echo.src.samplers import samplers
 import warnings
 warnings.filterwarnings("ignore")
-
-from echo.src.samplers import samplers
-import importlib.machinery
-import pandas as pd
-import numpy as np
-import subprocess
-import logging
-import optuna
-import time
-import glob
-import yaml
-import sys
-import os
 
 
 # References
@@ -22,9 +22,7 @@ import os
 # https://optuna.readthedocs.io/en/stable/tutorial/004_distributed.html#distributed
 
 
-
 start_the_clock = time.time()
-
 
 
 def gpu_report():
@@ -36,7 +34,8 @@ def gpu_report():
         Keys are device ids as integers.
         Values are memory usage as integers in MB.
     """
-    cmd = ['nvidia-smi', '--query-gpu=memory.free','--format=csv,nounits,noheader']
+    cmd = ['nvidia-smi', '--query-gpu=memory.free',
+           '--format=csv,nounits,noheader']
     result = subprocess.check_output(cmd)
     result = result.decode('utf-8')
     # Convert lines into a dictionary
@@ -52,13 +51,13 @@ def get_sec(time_str):
 
 
 def main():
-    
+
     if len(sys.argv) != 3:
         print(
             "Usage: python run.py hyperparameter.yml model.yml"
         )
         sys.exit()
-        
+
     hyper_fn = str(sys.argv[1])
     model_fn = str(sys.argv[2])
 
@@ -74,21 +73,24 @@ def main():
     root.addHandler(ch)
 
     ################################################################
-    
+
     # Check if hyperparameter config file exists
-    assert os.path.isfile(hyper_fn),  f"Hyperparameter optimization config file {hyper_fn} does not exist"
+    assert os.path.isfile(
+        hyper_fn),  f"Hyperparameter optimization config file {hyper_fn} does not exist"
     with open(hyper_fn) as f:
         hyper_config = yaml.load(f, Loader=yaml.FullLoader)
 
     # Check if the wall-time exists
     if "slurm" in hyper_config:
         assert "t" in hyper_config["slurm"]["batch"],  "You must supply a wall time in the hyperparameter config at slurm:batch:t"
-            
+
     if "pbs" in hyper_config:
-        assert any([("walltime" in x) for x in hyper_config["pbs"]["batch"]["l"]]), "You must supply a wall time in the hyperparameter config at pbs:bash:l"
+        assert any([("walltime" in x) for x in hyper_config["pbs"]["batch"]["l"]]
+                   ), "You must supply a wall time in the hyperparameter config at pbs:bash:l"
 
     # Check if model config file exists
-    assert os.path.isfile(model_fn), f"Model config file {model_fn} does not exist"
+    assert os.path.isfile(
+        model_fn), f"Model config file {model_fn} does not exist"
     with open(model_fn) as f:
         model_config = yaml.load(f, Loader=yaml.FullLoader)
 
@@ -96,29 +98,31 @@ def main():
     model_config["optuna"] = hyper_config["optuna"]
 
     # Check if path to objective method exists
-    assert os.path.isfile(model_config["optuna"]["objective"]), f'The objective file {model_config["optuna"]["objective"]} does not exist'
-    
+    assert os.path.isfile(model_config["optuna"]["objective"]
+                          ), f'The objective file {model_config["optuna"]["objective"]} does not exist'
+
     loader = importlib.machinery.SourceFileLoader(
-        "custom_objective", 
+        "custom_objective",
         model_config["optuna"]["objective"]
     )
     mod = loader.load_module()
     from custom_objective import Objective
-
 
     # Check if the optimization metric direction is supported
     direction = model_config["optuna"]["direction"]
     single_objective = isinstance(direction, str)
 
     if single_objective:
-        assert direction in ["maximize", "minimize"], f"Optimizer direction {direction} not recognized. Choose from maximize or minimize"
+        assert direction in [
+            "maximize", "minimize"], f"Optimizer direction {direction} not recognized. Choose from maximize or minimize"
     else:
         for direc in direction:
-            assert direc in ["maximize", "minimize"], f"Optimizer direction {direc} not recognized. Choose from maximize or minimize"
+            assert direc in [
+                "maximize", "minimize"], f"Optimizer direction {direc} not recognized. Choose from maximize or minimize"
 
     logging.info(f"Direction of optimization: {direction}")
 
-    ### Add other config checks
+    # Add other config checks
 
     ################################################################
 
@@ -148,9 +152,9 @@ def main():
     if bool(model_config["optuna"]["gpu"]):
         try:
             gpu_report = sorted(
-                gpu_report().items(), 
-                key = lambda x: x[1], 
-                reverse = True
+                gpu_report().items(),
+                key=lambda x: x[1],
+                reverse=True
             )
             device = gpu_report[0][0]
         except:
@@ -174,13 +178,13 @@ def main():
 
     # Initialize the sampler
     if "sampler" not in hyper_config["optuna"]:
-        if single_objective: # single-objective
+        if single_objective:  # single-objective
             sampler = optuna.samplers.TPESampler()
-        else: # multi-objective equivalent of TPESampler
+        else:  # multi-objective equivalent of TPESampler
             sampler = optuna.multi_objective.samplers.MOTPEMultiObjectiveSampler()
     else:
         sampler = samplers(hyper_config["optuna"]["sampler"])
-        
+
     if "pruner" not in hyper_config["optuna"]:
         pruner = optuna.pruners.NopPruner()
     else:
@@ -223,7 +227,8 @@ def main():
                 wall_time = option.split("walltime=")[-1]
                 break
         if wall_time is False:
-            logging.warning("Could not process the walltime for run.py. Assuming 12 hours.")
+            logging.warning(
+                "Could not process the walltime for run.py. Assuming 12 hours.")
             wall_time = "12:00:00"
     wall_time_secs = get_sec(wall_time)
 
@@ -237,25 +242,25 @@ def main():
         try:
             start_time = time.time()
             study.optimize(
-                objective, 
-                n_trials = 1, 
-                timeout = estimated_run_time,
-                #catch = (ValueError,) 
+                objective,
+                n_trials=1,
+                timeout=estimated_run_time,
+                #catch = (ValueError,)
             )
             end_time = time.time()
             run_times.append(end_time - start_time)
         except KeyboardInterrupt:
             logging.warning(
-                    f"Recieved signal to die from keyboard. Exiting."
-                )
+                f"Recieved signal to die from keyboard. Exiting."
+            )
             break
         except Exception as E:
             logging.warning(
-                    f"Dying early due to error {E}"
-                )
+                f"Dying early due to error {E}"
+            )
             break
 
-        # Testing out way to stop running trials if too close to wall-time. 
+        # Testing out way to stop running trials if too close to wall-time.
         # Update to computing the mean of the run times of all completed trials in the database.
         if len(run_times) > 1:
             average_run_time = np.mean(run_times)
@@ -267,6 +272,7 @@ def main():
                     f"Dying early as estimated run-time exceeds the time remaining on this node."
                 )
                 break
-                
+
+
 if __name__ == "__main__":
     main()

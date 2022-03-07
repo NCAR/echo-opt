@@ -11,6 +11,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from argparse import ArgumentParser
 from typing import Dict
+from echo.src.pruners import pruners
 
 
 def args():
