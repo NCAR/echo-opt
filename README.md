@@ -1,15 +1,25 @@
 # **E**arth **C**omputing **H**yperparameter **O**ptimization (ECHO): A distributed hyperparameter optimization package build with Optuna
 
-### Usage
+### Install
+pip install git+https://github.com/NCAR/echo-opt.git
 
-Run the hyperparameter optimization script:
+Several commands will be placed onto the PATH:
+echo-opt, echo-report, echo-run
+
+### Usage
+Launch a new optimization study:
 ```python
-python optimize.py hyperparameters.yml model_config.yml
+echo-opt hyperparameters.yml model_config.yml
 ```
-Run the report script to get a dataframe of the results saved in the study:
+Produce a report about the results saved in the study:
 ```python
-python report.py hyperparameters.yml [-p plot_config.yml]
+echo-report hyperparameters.yml [-p plot_config.yml]
 ```
+Run one trial:
+```python
+echo-run hyperparameters.yml model_config.yml
+```
+
 ### Dependencies
 
 There are three files that must be supplied to use the optimize script:

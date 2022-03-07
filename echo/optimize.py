@@ -195,7 +195,7 @@ def prepare_slurm_launch_script(hyper_config: str,
         "run.py"
     )
     if "trials_per_job" in hyper_config["slurm"]:
-        for copy in hyper_config["slurm"]["trials_per_job"]:
+        for copy in range(hyper_config["slurm"]["trials_per_job"]):
             slurm_options.append(f"python {aiml_path} {sys.argv[1]} {sys.argv[2]} &")
             slurm_options.append(f"sleep 30") # allow some time between calling instances of run
         slurm_options.append(f"wait")
@@ -228,8 +228,8 @@ def prepare_pbs_launch_script(hyper_config: str,
         os.path.abspath(opt.__file__).strip("__init__.py"), 
         "run.py"
     )
-    if "trials_per_job" in hyper_config["slurm"]:
-        for copy in hyper_config["slurm"]["trials_per_job"]:
+    if "trials_per_job" in hyper_config["pbs"]:
+        for copy in range(hyper_config["pbs"]["trials_per_job"]):
             pbs_options.append(f"python {aiml_path} {sys.argv[1]} {sys.argv[2]} &")
             pbs_options.append(f"sleep 30") # allow some time between calling instances of run
         pbs_options.append(f"wait")
@@ -252,7 +252,7 @@ def recursive_config_reader(_dict: Dict[str, str],
             yield newpath, v
 
 
-if __name__ == "__main__":
+def main():
     
     args_dict = args()
 
@@ -337,6 +337,11 @@ if __name__ == "__main__":
         pruner = optuna.pruners.NopPruner()
     else:
         pruner = pruners(hyper_config["optuna"]["pruner"])
+        
+    if reload_study and not os.path.isfile(storage):
+        logging.info(
+            "No storage file exists yet, but the reload parameter was set to True. Overriding.")
+        reload_study = False
 
     # Initiate a study for the first time
     if not reload_study:
@@ -344,7 +349,6 @@ if __name__ == "__main__":
         # Check the direction
         if isinstance(direction, list):
             for direc in direction:
-                assert 
                 if direc not in ["maximize", "minimize"]:
                     raise OSError(
                     f"Optimizer direction {direc} not recognized. Choose from maximize or minimize"
@@ -389,17 +393,19 @@ if __name__ == "__main__":
                 study_name = study_name,
                 storage = storage,
                 direction = direction,
-                sampler = sampler
+                sampler = sampler,
+                pruner = pruner
             )
         else:
             create_study = optuna.multi_objective.study.create_study(
                 study_name = study_name,
                 storage = storage,
                 directions = direction,
-                sampler = sampler
+                sampler = sampler,
+                pruner = pruner
             )
             
-    # Check to see if there are any broken trials
+    # Check to see if there are any broken trials        
     else:  
         logging.info(
             f"Checking the study for broken trials (those that did not complete 1 epoch before dying)"
@@ -516,3 +522,7 @@ if __name__ == "__main__":
         with open(os.path.join(script_path, "pbs_job_ids.txt"), "w") as fid:
             for line in job_ids:
                 fid.write(f"{line}\n")
+
+                
+if __name__ == "__main__":
+    main()

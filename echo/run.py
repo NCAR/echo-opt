@@ -51,7 +51,7 @@ def get_sec(time_str):
     return int(h) * 3600 + int(m) * 60 + int(s)
 
 
-if __name__ == "__main__":
+def main():
     
     if len(sys.argv) != 3:
         print(
@@ -267,3 +267,6 @@ if __name__ == "__main__":
                     f"Dying early as estimated run-time exceeds the time remaining on this node."
                 )
                 break
+                
+if __name__ == "__main__":
+    main()

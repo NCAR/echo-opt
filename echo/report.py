@@ -132,10 +132,8 @@ def plot_wrapper(study: optuna.study.Study,
     )
     
 
-if __name__ == "__main__":
-    
-    assert len(sys.argv) >= 2: "Usage: python report.py hyperparameter.yml [optional arguments]. To see the available parser options: python report.py --help"
-    
+def main():    
+
     args_dict = args()
 
     hyper_config = args_dict.pop("hyperparameter")
@@ -175,14 +173,22 @@ if __name__ == "__main__":
 
     direction = hyper_config["optuna"]["direction"]
     single_objective = isinstance(direction, str)
+    
+    # Load prune
+    if "pruner" not in hyper_config["optuna"]:
+        pruner = optuna.pruners.NopPruner()
+    else:
+        pruner = pruners(hyper_config["optuna"]["pruner"])
 
     # Load from database
     if single_objective:
-        study = optuna.load_study(study_name=study_name, storage=storage)
+        study = optuna.load_study(
+            study_name=study_name, storage=storage, pruner=pruner)
     else:
         study = optuna.multi_objective.study.load_study(
             study_name=study_name, 
-            storage=storage
+            storage=storage,
+            pruner=pruner
         )
 
     # Check a few other stats
@@ -242,3 +248,7 @@ if __name__ == "__main__":
     else:
         # Plot the pareto front
         plot_wrapper(study, "pareto_front", save_path, plot_config)
+
+        
+if __name__ == "__main__":
+    main()
