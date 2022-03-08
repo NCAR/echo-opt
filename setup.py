@@ -7,4 +7,7 @@ setup(name="echo-opt",
       license="MIT",
       url="https://github.com/NCAR/echo-opt",
       packages=["echo", "echo/src"],
+      entry_points = {
+        'console_scripts': ['echo-opt=echo.optimize:main', 'echo-run=echo.run:main', 'echo-report=echo.report:main'],
+      }
       )
