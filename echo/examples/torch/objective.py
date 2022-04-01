@@ -15,7 +15,7 @@ from holodecml.vae.transforms import *
 from holodecml.vae.optimizers import *
 from holodecml.vae.data_loader import *
 from holodecml.vae.checkpointer import *
-from aimlutils.hyper_opt.base_objective import *
+from echo.src.base_objective import BaseObjective
 
 from torch import nn
 from torch.optim.lr_scheduler import *
