@@ -13,16 +13,29 @@ slurm:
     J: "hyper_opt"
     o: "hyper_opt.out"
     e: "hyper_opt.err"
-    
+
+pbs:
+  jobs: 10
+  trials_per_job: 1
+  bash: ["module load cuda/11 cudnn", "conda activate sfc"]
+  batch:
+    l: ["select=1:ncpus=8:ngpus=1:mem=64GB", "walltime=01:00:00"]
+    A: "NAML0001"
+    q: "casper"
+    N: "echo_trial"
+    o: "echo_trial.out"
+    e: "echo_trial.err"
+
 optuna:
-  name: "holodec_optimization.db"
+  study_name: "holodec_optimization.db"
   reload: 1
-  objective: "/glade/work/schreck/repos/aiml-utils/aimlutils/hyper_opt/examples/keras/objective.py"
+  objective: "/glade/work/schreck/repos/echo-opt/echo/examples/keras/objective.py"
   direction: "minimize"
   metric: "val_loss"
   n_trials: 500
   gpu: True
-  save_path: 'examples/keras/results'
+  save_path: '/glade/work/schreck/repos/echo-opt/echo/examples/keras/results'
+  storage: 'sqlite:////glade/work/schreck/repos/echo-opt/echo/examples/keras/results/sl_optimize.db'
   sampler:
     type: "TPESampler"
   parameters:
