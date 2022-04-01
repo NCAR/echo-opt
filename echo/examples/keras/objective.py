@@ -5,14 +5,10 @@ import copy
 import optuna
 import logging
 import traceback
-
-from aimlutils.hyper_opt.base_objective import *
 from data_generator import DataGenerator
 from model import Conv2DNeuralNetwork
-
 from holodecml.callbacks import get_callbacks
-from aimlutils.hyper_opt.utils import KerasPruningCallback
-
+from echo.src.base_objective import BaseObjective
 
 logger = logging.getLogger(__name__)
 
