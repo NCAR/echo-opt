@@ -35,7 +35,7 @@ optuna:
   n_trials: 500
   gpu: True
   save_path: '/glade/work/schreck/repos/echo-opt/echo/examples/keras/results'
-  storage: 'sqlite:////glade/work/schreck/repos/echo-opt/echo/examples/keras/results/sl_optimize.db'
+  storage: 'sqlite:////glade/work/schreck/repos/echo-opt/echo/examples/keras/results/holo_optimize.db'
   sampler:
     type: "TPESampler"
   parameters:
