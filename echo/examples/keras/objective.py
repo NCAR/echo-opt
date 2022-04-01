@@ -41,10 +41,10 @@ def custom_updates(trial, conf):
 
 class Objective(BaseObjective):
     
-    def __init__(self, study, config, metric = "val_loss", device = "cpu"):
+    def __init__(self, config, metric = "val_loss", device = "cpu"):
         
         # Initialize the base class
-        BaseObjective.__init__(self, study, config, metric, device)
+        BaseObjective.__init__(self, config, metric, device)
 
 
     def train(self, trial, conf):   
