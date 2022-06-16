@@ -1,0 +1,63 @@
+save_path: "/glade/work/schreck/repos/echo-opt/echo/examples/fmc/test"
+log: True
+
+pbs:
+  jobs: 10
+  kernel: "ncar_pylib /glade/work/$USER/py37" # ncar_20200417
+  bash: ["source ~/.bashrc"]
+  batch:
+    N: "fmc-mlp"
+    l: ["select=1:ncpus=8:ngpus=1:mem=128GB", "walltime=24:00:00", "gpu_type=v100"]
+    A: "NAML0001"
+    q: "casper"
+    o: "out"
+    e: "out"
+    
+optuna:
+  storage: "mlp.db"
+  study_name: "mlp"
+  storage_type: "sqlite"
+  objective: "/glade/work/schreck/repos/echo-opt/echo/examples/fmc/train_mlp.py"
+  direction: "minimize"
+  metric: "valid_rmse"
+  n_trials: 1000
+  gpu: True
+  sampler:
+    type: "TPESampler"
+    n_startup_trials: 100
+  parameters:
+    optimizer:learning_rate:
+      type: "loguniform"
+      settings:
+        name: "learning_rate"
+        low: 1.0e-06
+        high: 1.0e-02
+    model:middle_size:
+      type: "int"
+      settings:
+        name: "middle_size"
+        low: 10
+        high: 10000
+    model:num_layers:
+      type: "int"
+      settings:
+        name: "num_layers"
+        low: 1
+        high: 10
+    model:dropout:
+      type: "float"
+      settings:
+        name: "dropout"
+        low: 0.0
+        high: 0.5
+    trainer:batch_size:
+      type: "int"
+      settings:
+        name: "batch_size"
+        low: 10
+        high: 10000
+    trainer:training_loss:
+      type: "categorical"
+      settings:
+        name: "training_loss"
+        choices: ["mae", "mse", "huber", "logcosh", "xtanh", "xsigmoid"]

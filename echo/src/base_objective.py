@@ -2,6 +2,7 @@ import warnings
 warnings.filterwarnings("ignore")
 
 from echo.src.trial_suggest import trial_suggest_loader
+from echo.src.config import recursive_config_reader, recursive_update
 from collections import defaultdict
 import copy, os, sys, random, glob
 import pandas as pd 
@@ -9,16 +10,7 @@ import logging
 import optuna
 
 
-
 logger = logging.getLogger(__name__)
-
-
-
-def recursive_update(nested_keys, dictionary, update):
-    if isinstance(dictionary, dict) and len(nested_keys) > 1:
-        recursive_update(nested_keys[1:], dictionary[nested_keys[0]], update)
-    else:
-        dictionary[nested_keys[0]] = update
 
 
 class BaseObjective:
@@ -27,26 +19,33 @@ class BaseObjective:
         
         self.config = config
         self.metric = metric
-        self.device = f"cuda:{device}" if device != "cpu" else "cpu"
+        self._summon = False
         
+    def set_properties(self, node_id = None, device = "cpu"):
+        if isinstance(device, list):
+            self.device = [f"cuda:{d}" for d in device]
+        else:
+            self.device = f"cuda:{device}" if device != "cpu" else "cpu"
+        self._summon = True
+        self.worker_index = node_id
         self.results = defaultdict(list)
-        save_path = config["optuna"]["save_path"]
-        worker_index = len(glob.glob(os.path.join(save_path, f"worker_*")))
-        self.results_fn = os.path.join(save_path, f"worker_{worker_index}.csv")
-        while os.path.isfile(self.results_fn):
-            worker_index += 1
-            self.results_fn = os.path.join(save_path, f"worker_{worker_index}.csv")
-        self.worker_index = worker_index
-            
-        logger.info(f"Worker {worker_index} is summoned.")
-        logger.info(f"Worker {worker_index} initialized an objective to be optimized with metric {metric}")
-        logger.info(f"Worker {worker_index} is using device {device}")
-        logger.info(f"Worker {worker_index} is saving study/trial results to local file {self.results_fn}")
+        save_path = os.path.join(self.config["optuna"]["save_path"], "results")
+        os.makedirs(save_path, exist_ok = True)
+        if node_id is not None:
+            self.results_fn = os.path.join(save_path, f"results_{str(node_id)}.csv")
+        else:
+            self.results_fn = os.path.join(save_path, f"results.csv")
+    
+        node_id = 0 if node_id is None else node_id
+        logger.info(f"Worker {node_id} is summoned.")
+        logger.info(f"\tinitializing an objective to be optimized with metric {self.metric}")
+        logger.info(f"\tusing device(s) {self.device}")
+        logger.info(f"\tsaving study/trial results to local file {self.results_fn}")
     
     def update_config(self, trial):
         
         logger.info(
-            f"Worker {self.worker_index} is attempting to automatically update the model configuration using optuna's suggested parameters"
+            f"Attempting to automatically update the model configuration using optuna's suggested parameters"
         )
         
         # Make a copy the config that we can edit
@@ -66,8 +65,24 @@ class BaseObjective:
                 if named_parameter in conf:
                     conf[named_parameter] = trial_suggest_loader(trial, update)
                     updated.append(named_parameter)
-                    
-        logger.info(f"... those that got updated automatically: {updated}")
+                 
+        observed = []
+        for (k, v) in recursive_config_reader(conf):
+            for u in updated:
+                u = u.split(":")[-1] if len(u.split(":")) else u
+                if (u in k):
+                    k = ":".join(k)
+                    logger.info(f"\t{k} : {v}")
+                    observed.append(k)
+    
+        not_updated = list(set(hyperparameters.keys()) - set(observed))
+        for p in not_updated:
+            logger.warn(f"\t{p} was not auto-updated by ECHO")
+        if len(not_updated):
+            logger.warn("Not all parameters were updated by ECHO")
+            logger.warn("There may be a mismatch between the model and hyper config files")
+            logger.warn("If using custom_updates, ignore this message")
+        
         return conf
 
     def save(self, trial, results_dict):
@@ -91,12 +106,19 @@ class BaseObjective:
             
         # Save pruning boolean
         self.results["pruned"] = int(trial.should_prune())
+        df = pd.DataFrame.from_dict(self.results)
         
         # Save the df of results to disk
-        pd.DataFrame.from_dict(self.results).to_csv(self.results_fn)
+        if os.path.isfile(self.results_fn):
+            df = pd.concat([
+                df, pd.read_csv(self.results_fn, usecols = list(df.columns))
+            ]).reset_index(drop = True)
+        df = df.drop_duplicates(["trial"])
+        df = df.sort_values(["trial"])
+        df.to_csv(self.results_fn)
         
         logger.info(
-            f"Worker {self.worker_index}  is saving trial {trial.number} results to local file {self.results_fn}"
+            f"Saving trial {trial.number} results to local file {self.results_fn}"
         )
         
         if single_objective:
@@ -106,14 +128,19 @@ class BaseObjective:
     
     def __call__(self, trial):
         
+        # Secondary set-up of node_id and devices
+        if not self._summon:
+            self.set_properties()
+        
         # Automatically update the config, when possible
         conf = self.update_config(trial)
         
         # Train the model
         logger.info(
-            f"Worker {self.worker_index} is beginning to train the model using the latest parameters from optuna"
+            f"Beginning trial {trial.number}"
         )
         
+        # Train the model! 
         result = self.train(trial, conf)
         
         return self.save(trial, result)

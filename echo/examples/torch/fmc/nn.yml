@@ -1,0 +1,68 @@
+seed: 1000
+save_loc: "/glade/work/schreck/repos/echo-opt/echo/examples/fmc"
+data_loc: "/glade/scratch/jimenez/tmp/jpss_datasets/fmc_10h_training_conus2250m-v3.nc"
+verbose: True
+
+input_vars: [
+    'ALBEDO12M',
+    'GREENFRAC',
+    'LAI12M',
+    'ACCET',
+    'SOILSAT_ALL',
+    'LST_high',
+    'LST_high_err',
+    '750m Surface Reflectance Band M1',
+    '750m Surface Reflectance Band M2',
+    '750m Surface Reflectance Band M3',
+    '750m Surface Reflectance Band M4',
+    '750m Surface Reflectance Band M5',
+    '750m Surface Reflectance Band M7',
+    '750m Surface Reflectance Band M8',
+    '750m Surface Reflectance Band M10',
+    '750m Surface Reflectance Band M11',
+    '375m Surface Reflectance Band I1',
+    '375m Surface Reflectance Band I2',
+    '375m Surface Reflectance Band I3'
+]
+
+static_vars: [
+    'latitude',
+    'longitude',
+    'CANFRA',
+    'CLAYFRAC',
+    'FRC_URB2D',
+    'HGT_M',
+    'slope_x',
+    'slope_y',
+    'IMPERV',
+    'IRRIGATION',
+    'LU_INDEX',
+    'SANDFRAC',
+    'SCB_DOM',
+    'SCT_DOM',
+    'SNOALB',
+]
+
+output_vars: [
+    '10h_dead_fuel_moisture_content'
+]
+
+model:
+    middle_size: 5875
+    dropout: 0.018005400436019826
+    num_layers: 6
+    
+optimizer:
+    learning_rate: 0.0003898318887590457
+    L2_penalty: 0.0
+    
+trainer:
+    n_splits: 1
+    batch_size: 516
+    valid_batch_size: 1024
+    lr_patience: 2
+    stopping_patience: 7
+    epochs: 1
+    batches_per_epoch: 1000
+    training_loss: "xsigmoid"
+    metric: "valid_rmse"

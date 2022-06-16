@@ -1,4 +1,5 @@
-from typing import Dict
+from echo.src.config import config_check, recursive_config_reader
+from echo.src.reporting import study_report
 from echo.src.pruners import pruners
 from echo.src.samplers import samplers
 from argparse import ArgumentParser
@@ -6,6 +7,7 @@ import numpy as np
 import subprocess
 import logging
 import optuna
+import shutil
 import yaml
 import sys
 import os
@@ -31,19 +33,25 @@ def args():
         help="The name of the study"
     )
     parser.add_argument(
-        "--override",
-        dest="override",
-        type=bool,
-        default=False,
-        help="Force remove the study name from the storage"
-    )
-    parser.add_argument(
-        "-r",
-        "--reload",
-        dest="reload",
+        "--storage_type",
+        dest="storage_type",
         type=str,
         default=False,
-        help="Set = 0 to initiate a new study, = 1 to continue a study"
+        help="The storage type (sqlite or maria)"
+    )
+    parser.add_argument(
+        "--storage",
+        dest="storage",
+        type=str,
+        default=False,
+        help="The storage name of the database to use"
+    )
+    parser.add_argument(
+        "--delete_study",
+        dest="delete_study",
+        type=bool,
+        default=False,
+        help="Delete the study from the storage db"
     )
     parser.add_argument(
         "-o",
@@ -101,6 +109,7 @@ def args():
         default=False,
         help="Create a study but do not submit any workers"
     )
+    
     return vars(parser.parse_args())
 
 
@@ -177,7 +186,7 @@ def prepare_slurm_launch_script(hyper_config: str,
     slurm_options += [
         f"#SBATCH -{arg} {val}" if len(arg) == 1 else f"#SBATCH --{arg}={val}"
         for arg, val in hyper_config["slurm"]["batch"].items()
-    ]
+    ] # This needs updated to redirect the slurm output to the save_path
     if "bash" in hyper_config["slurm"]:
         if len(hyper_config["slurm"]["bash"]) > 0:
             for line in hyper_config["slurm"]["bash"]:
@@ -185,20 +194,22 @@ def prepare_slurm_launch_script(hyper_config: str,
     if "kernel" in hyper_config["slurm"]:
         if hyper_config["slurm"]["kernel"] is not None:
             slurm_options.append(f'{hyper_config["slurm"]["kernel"]}')
-    import echo as opt
-    aiml_path = os.path.join(
-        os.path.abspath(opt.__file__).strip("__init__.py"),
-        "run.py"
-    )
-    if "trials_per_job" in hyper_config["slurm"]:
+#     import echo as opt
+    aiml_path = "echo-run" 
+#     aiml_path = os.path.join(
+#         os.path.abspath(opt.__file__).strip("__init__.py"),
+#         "run.py"
+#     )
+    slurm_id = '${SLURM_JOB_ID}'
+    if "trials_per_job" in hyper_config["slurm"] and hyper_config["slurm"]["trials_per_job"] > 1:
         for copy in range(hyper_config["slurm"]["trials_per_job"]):
             slurm_options.append(
-                f"python {aiml_path} {sys.argv[1]} {sys.argv[2]} &")
+                f"{aiml_path} {sys.argv[1]} {sys.argv[2]} {slurm_id} &")
             # allow some time between calling instances of run
             slurm_options.append(f"sleep 30")
         slurm_options.append(f"wait")
     else:
-        slurm_options.append(f"python {aiml_path} {sys.argv[1]} {sys.argv[2]}")
+        slurm_options.append(f"{aiml_path} {sys.argv[1]} {sys.argv[2]} {slurm_id}")
     return slurm_options
 
 
@@ -212,6 +223,13 @@ def prepare_pbs_launch_script(hyper_config: str,
                 pbs_options.append(f"#PBS -{arg} {opt}")
         elif len(arg) == 1:
             pbs_options.append(f"#PBS -{arg} {val}")
+        elif arg in ["o", "e"]:
+            if val != "/dev/null":
+                _val = os.path.append(hyper_config["save_path"], val)
+                # info?
+                pbs_options.append(f"#PBS -{arg} {_val}")
+            else:
+                pbs_options.append(f"#PBS -{arg} {val}")
         else:
             pbs_options.append(f"#PBS --{arg}={val}")
     if "bash" in hyper_config["pbs"]:
@@ -221,55 +239,106 @@ def prepare_pbs_launch_script(hyper_config: str,
     if "kernel" in hyper_config["pbs"]:
         if hyper_config["pbs"]["kernel"] is not None:
             pbs_options.append(f'{hyper_config["pbs"]["kernel"]}')
-    import echo as opt
-    aiml_path = os.path.join(
-        os.path.abspath(opt.__file__).strip("__init__.py"),
-        "run.py"
-    )
+#     import echo as opt
+    aiml_path = "echo-run"
+#     aiml_path = os.path.join(
+#         os.path.abspath(opt.__file__).strip("__init__.py"),
+#         "run.py"
+#     )
+    pbs_jobid = '${PBS_JOBID}'
     if "trials_per_job" in hyper_config["pbs"]:
         for copy in range(hyper_config["pbs"]["trials_per_job"]):
             pbs_options.append(
-                f"python {aiml_path} {sys.argv[1]} {sys.argv[2]} &")
+                f"{aiml_path} {sys.argv[1]} {sys.argv[2]} {pbs_jobid} &")
             # allow some time between calling instances of run
             pbs_options.append(f"sleep 30")
         pbs_options.append(f"wait")
     else:
-        pbs_options.append(f"python {aiml_path} {sys.argv[1]} {sys.argv[2]}")
+        pbs_options.append(f"{aiml_path} {sys.argv[1]} {sys.argv[2]} {pbs_jobid}")
     return pbs_options
 
 
-def recursive_config_reader(_dict: Dict[str, str],
-                            path: bool = None):
+# def recursive_config_reader(_dict: Dict[str, str],
+#                             path: bool = None):
 
-    if path is None:
-        path = []
-    for k, v in _dict.items():
-        newpath = path + [k]
-        if isinstance(v, dict):
-            for u in recursive_config_reader(v, newpath):
-                yield u
-        else:
-            yield newpath, v
+#     if path is None:
+#         path = []
+#     for k, v in _dict.items():
+#         newpath = path + [k]
+#         if isinstance(v, dict):
+#             for u in recursive_config_reader(v, newpath):
+#                 yield u
+#         else:
+#             yield newpath, v
 
 
+# def study_report(study, hyper_config):
+#     n_trials = hyper_config["optuna"]["n_trials"]
+#     total_completed_trials = successful_trials(study)
+#     logging.info("Summary statistics for the current study:")
+#     logging.info(f"\tTotal number of trials in the study: {len(study.get_trials())}")
+#     logging.info(f"\tCompleted / pruned trials: {total_completed_trials}")
+#     logging.info(f"\tRequested number of trials: {n_trials}")
+#     logging.info(f"\t...")
+#     df = study.trials_dataframe()
+#     df["run_time"] = df["datetime_complete"] - df["datetime_start"]
+#     completed_runs = df["datetime_complete"].apply(lambda x: True if x else False)
+#     run_time = df["run_time"][completed_runs].apply(lambda x: x.total_seconds() / 3600.0)
+#     logging.info(f"\tTotal study simulation run time: {run_time.sum():.4f} hrs")
+#     logging.info(f"\tAverage trial simulation run time: {run_time.mean():.4f} hrs")
+    
+#     if total_completed_trials < n_trials:
+    
+#         trails_remaining = n_trials - total_completed_trials
+#         time_needed = trails_remaining * run_time.mean()
+#         logging.info(
+#             f"\tEstimated remaining simulation time needed: {time_needed:.4f} hrs")
+
+#         if "pbs" in hyper_config:
+#             for option in hyper_config["pbs"]["batch"]["l"]:
+#                 if "walltime" in option:
+#                     time_str = option.split("=")[1]
+#                     if ":" in time_str:
+#                         walltime = get_sec(option.split("=")[1])
+#                     else:
+#                         walltime = False
+#             if walltime:
+#                 nodes = int(np.ceil(3600 * time_needed / walltime))
+#                 logging.info(
+#                     f"\tWith a given wall-time of {time_str}, submit {nodes} PBS workers to complete the study")
+           
+#         if "slurm" in hyper_config:
+#             time_str =  hyper_config["slurm"]["batch"]["t"]
+#             if ":" in time_str:
+#                 walltime = get_sec(time_str)
+#             else:
+#                 walltime = False
+#             if walltime:
+#                 nodes = int(np.ceil(3600 * time_needed / walltime))
+#                 logging.info(
+#                     f"\tWith a given wall-time of {time_str}, submit {nodes} SLURM workers to complete the study")   
+
+#     return total_completed_trials
+
+            
 def main():
 
     args_dict = args()
 
-    hyper_config = args_dict.pop("hyperparameter")
-    model_config = args_dict.pop("model")
+    _hyper_config = args_dict.pop("hyperparameter")
+    _model_config = args_dict.pop("model")
 
     assert (
-        hyper_config and model_config), "Usage: python main.py hyperparameter.yml model.yml [optional parser options]"
+        _hyper_config and _model_config), "Usage: python main.py hyperparameter.yml model.yml [optional parser options]"
 
     assert os.path.isfile(
-        hyper_config), f"Hyperparameter optimization config file {hyper_config} does not exist"
-    with open(hyper_config) as f:
+        _hyper_config), f"Hyperparameter optimization config file {_hyper_config} does not exist"
+    with open(_hyper_config) as f:
         hyper_config = yaml.load(f, Loader=yaml.FullLoader)
 
     assert os.path.isfile(
-        model_config), f"Model config file {model_config} does not exist"
-    with open(model_config) as f:
+        _model_config), f"Model config file {_model_config} does not exist"
+    with open(_model_config) as f:
         model_config = yaml.load(f, Loader=yaml.FullLoader)
 
     # Set up a logger
@@ -282,73 +351,131 @@ def main():
     ch.setLevel(logging.INFO)
     ch.setFormatter(formatter)
     root.addHandler(ch)
-
+    
+    # Override other options in hyperparameter config file, if supplied.
+    save_confs = sum([1 for key, val in args_dict.items() if type(val) != bool])
+    for name, val in args_dict.items():
+        if val and (name in hyper_config):
+            if name == "save_path":
+                current_value = hyper_config[name]
+                logging.info(
+                    f"Over-riding {name} in the hyperparameter configuration: {current_value} -> {val}"
+                )
+                hyper_config["save_path"] = val
+            else:
+                current_value = hyper_config["optuna"][name]
+                logging.info(
+                    f"Over-riding {name} in the hyperparameter configuration: {current_value} -> {val}"
+                )
+                hyper_config["optuna"][name] = val
+            
+    # Run some tests on the configurations
+    config_check(hyper_config, model_config)
+    
+    # Global save path
+    save_path = hyper_config["save_path"]
+    
+    # Create the save directory if it does not already exist.
+    if os.path.isdir(save_path):
+        logging.info(f"The parent save_path already exists at {save_path}")
+    else:
+        logging.info(f"Creating parent save_path at {save_path}")
+        os.makedirs(save_path, exist_ok = True)
+        
+    # Save the config files to the save_path
+    for fn in [_hyper_config, _model_config]:
+        if not os.path.isfile(os.path.join(save_path, fn)):
+            shutil.copyfile(fn, os.path.join(save_path, fn))
+        
     # Stream output to file
-    if "log" in hyper_config:
-        savepath = hyper_config["log"]["save_path"] if "save_path" in hyper_config["log"] else "log.txt"
-        mode = "a+" if bool(hyper_config["optuna"]["reload"]) else "w"
-        fh = logging.FileHandler(savepath,
-                                 mode=mode,
+    _log = False if "log" not in hyper_config else hyper_config["log"]
+    if _log:
+        fh = logging.FileHandler(os.path.join(save_path, "log.txt"),
+                                 mode="a+", # always initiate / append
                                  encoding='utf-8')
         fh.setLevel(logging.DEBUG)
         fh.setFormatter(formatter)
         root.addHandler(fh)
 
-    # Override other options in hyperparameter config file, if supplied.
-    for name, val in args_dict.items():
-        if val and (name in hyper_config):
-            current_value = hyper_config["optuna"][name]
-            logging.info(
-                f"Overriding {name} in the hyperparameter configuration: {current_value} -> {val}"
-            )
-            hyper_config["optuna"][name] = val
-
     # Print the configurations to the logger
     logging.info("Current hyperparameter configuration settings:")
     for p, v in recursive_config_reader(hyper_config):
         full_path = ".".join([str(_p) for _p in p])
-        logging.info(f"{full_path}: {v}")
+        logging.info(f"\t{full_path}: {v}")
     logging.info("Current model configuration settings:")
     for p, v in recursive_config_reader(model_config):
         full_path = ".".join([str(_p) for _p in p])
-        logging.info(f"{full_path}: {v}")
+        logging.info(f"\t{full_path}: {v}")
 
-    # Set up new db entry if reload = 0
-    reload_study = bool(hyper_config["optuna"]["reload"])
-
-    # Check if save directory exists
-    if not os.path.isdir(hyper_config["optuna"]["save_path"]):
-        raise OSError(
-            f'Create the save directory {hyper_config["optuna"]["save_path"]} and try again'
-        )
-
+    # Set up storage db
     study_name = hyper_config["optuna"]["study_name"]
+    storage_type = hyper_config["optuna"]["storage_type"]
     storage = hyper_config["optuna"]["storage"]
-    direction = hyper_config["optuna"]["direction"]
-    single_objective = isinstance(direction, str)
-
+    if storage_type == "sqlite":
+        storage = os.path.join(save_path, storage)
+        storage = f"sqlite:///{storage}"
+    elif storage_type == "maria":
+        storage = storage
+       
     # Initialize the sampler
     if "sampler" not in hyper_config["optuna"]:
+        logging.warning(
+            f"No sampler was supplied in the hyperparameter config file.")
         if single_objective:  # single-objective
+            logging.info(
+              "\tUsing the default TPESampler class.")
             sampler = optuna.samplers.TPESampler()
         else:  # multi-objective equivalent of TPESampler
+            logging.info(
+              "\tUsing the default MOTPEMultiObjectiveSampler class.")
             sampler = optuna.multi_objective.samplers.MOTPEMultiObjectiveSampler()
     else:
         sampler = samplers(hyper_config["optuna"]["sampler"])
 
+    # Initialize the pruner
     if "pruner" not in hyper_config["optuna"]:
+        logging.warning(
+            "No pruner was supplied in the hyperparameter config file.")
+        logging.info(
+            "\tUsing the default NopPruner class (no pruning).")
         pruner = optuna.pruners.NopPruner()
     else:
         pruner = pruners(hyper_config["optuna"]["pruner"])
-
-    if reload_study and not os.path.isfile(storage):
-        logging.info(
-            "No storage file exists yet, but the reload parameter was set to True. Overriding.")
+        
+    """
+        Check if the db entry exists already 
+    """
+    direction = hyper_config["optuna"]["direction"]
+    single_objective = isinstance(direction, str)
+    
+    try:
+        """Check if the study record already exists."""
+        optuna.load_study(
+            study_name=study_name,
+            storage=storage
+        )
+        
+        if args_dict["delete_study"]:
+            logging.info(
+                f"Removing the study_name '{study_name}' that exists in storage {storage}."
+            )
+            optuna.delete_study(
+                study_name=study_name,
+                storage=storage
+            )
+            
+            reload_study = False
+        else:
+            logging.warning(f"The study '{study_name}' exists in {storage}.")
+            logging.info(f"\tIf you want to delete the study '{study_name}' first, pass '--delete_study 1'.")
+            reload_study = True
+    
+    except KeyError:  
+        # The study name was not in storage, can proceed
         reload_study = False
 
     # Initiate a study for the first time
     if not reload_study:
-
         # Check the direction
         if isinstance(direction, list):
             for direc in direction:
@@ -362,33 +489,6 @@ def main():
                 raise OSError(
                     f"Optimizer direction {direction} not recognized. Choose from maximize or minimize"
                 )
-
-        # Check if the study record already exists.
-        try:
-            optuna.load_study(
-                study_name=study_name,
-                storage=storage,
-                sampler=sampler,
-                pruner=pruner
-            )
-        except KeyError:  # The study name was not in storage, can proceed
-            pass
-
-        except:
-            if args_dict["override"]:
-                message = f"Removing the study_name {study_name} that exists in storage {storage}."
-                optuna.delete_study(
-                    study_name=study_name,
-                    storage=storage,
-                    direction=direction,
-                    sampler=sampler,
-                    pruner=pruner
-                )
-            else:
-                message = f"The study {study_name} already exists in storage and reload was False."
-                message += f" Delete it from {storage}, and try again or rerun this script"
-                message += f" with the flag: --override 1"
-                raise OSError(message)
 
         # Create a new study in the storage object
         if single_objective:
@@ -432,15 +532,23 @@ def main():
 
         if len(removed):
             logging.info(
-                f"Removing problematic trials {removed}."
+                f"\tRemoving problematic trials {removed}."
             )
         else:
-            logging.info("All trials check out!")
-
+            logging.info("\tAll trials check out!") 
+            
+        # Report on the current study to the logger
+        n_trials = hyper_config["optuna"]["n_trials"]
+        total_comp = study_report(study, hyper_config)
+        if total_comp >= n_trials:
+            logging.warning(
+                f"The number of trials in the study equals or exceeds that requested. Exiting without error.")
+            sys.exit()
+            
     # Override to create the database but skip submitting jobs.
     create_db_only = True if args_dict["create_study"] else False
 
-    # Stop here if arg is defined -- intention is that you manually run run.py for debugging purposes
+    # Stop here if arg is defined -- intention is that you manually run echo-run (run.py) for debugging purposes
     if create_db_only:
         logging.info(
             f"Created study {study_name} located at {storage}. Exiting.")
@@ -457,8 +565,7 @@ def main():
         launch_script = prepare_slurm_launch_script(hyper_config, model_config)
 
         # Save the configured script
-        script_path = hyper_config["optuna"]["save_path"]
-        script_location = os.path.join(script_path, "launch_slurm.sh")
+        script_location = os.path.join(save_path, "launch_slurm.sh")
         with open(script_location, "w") as fid:
             for line in launch_script:
                 fid.write(f"{line}\n")
@@ -483,7 +590,7 @@ def main():
             )
 
         # Write the job ids to file for reference
-        with open(os.path.join(script_path, "slurm_job_ids.txt"), "w") as fid:
+        with open(os.path.join(save_path, "slurm_job_ids.txt"), "w") as fid:
             for line in job_ids:
                 fid.write(f"{line}\n")
 
@@ -497,8 +604,7 @@ def main():
         launch_script = prepare_pbs_launch_script(hyper_config, model_config)
 
         # Save the configured script
-        script_path = hyper_config["optuna"]["save_path"]
-        script_location = os.path.join(script_path, "launch_pbs.sh")
+        script_location = os.path.join(save_path, "launch_pbs.sh")
         with open(script_location, "w") as fid:
             for line in launch_script:
                 fid.write(f"{line}\n")
@@ -508,24 +614,24 @@ def main():
         name_condition = "N" in hyper_config["pbs"]["batch"]
         slurm_job_name = hyper_config["pbs"]["batch"]["N"] if name_condition else "echo_trial"
         n_workers = hyper_config["pbs"]["jobs"]
-        for worker in range(n_workers):
-            w = subprocess.Popen(
-                f"qsub -N {slurm_job_name}_{worker} {script_location}",
-                shell=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE
-            ).communicate()
-            job_ids.append(
-                w[0].decode("utf-8").strip("\n")
-            )
-            logging.info(
-                f"Submitted pbs batch job {worker + 1}/{n_workers} with id {job_ids[-1]}"
-            )
+#         for worker in range(n_workers):
+#             w = subprocess.Popen(
+#                 f"qsub -N {slurm_job_name}_{worker} {script_location}",
+#                 shell=True,
+#                 stdout=subprocess.PIPE,
+#                 stderr=subprocess.PIPE
+#             ).communicate()
+#             job_ids.append(
+#                 w[0].decode("utf-8").strip("\n")
+#             )
+#             logging.info(
+#                 f"Submitted pbs batch job {worker + 1}/{n_workers} with id {job_ids[-1]}"
+#             )
 
-        # Write the job ids to file for reference
-        with open(os.path.join(script_path, "pbs_job_ids.txt"), "w") as fid:
-            for line in job_ids:
-                fid.write(f"{line}\n")
+#         # Write the job ids to file for reference
+#         with open(os.path.join(save_path, "pbs_job_ids.txt"), "w") as fid:
+#             for line in job_ids:
+#                 fid.write(f"{line}\n")
 
 
 if __name__ == "__main__":
