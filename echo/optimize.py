@@ -523,38 +523,38 @@ def main():
 
     """ PBS SUPPORT """
 
-        if "pbs" in hyper_config:
-            launch_script = prepare_pbs_launch_script(hyper_config, model_config)
+    if "pbs" in hyper_config:
+        launch_script = prepare_pbs_launch_script(hyper_config, model_config)
 
-            """ Save the configured script """
-            script_location = os.path.join(save_path, "launch_pbs.sh")
-            with open(script_location, "w") as fid:
-                for line in launch_script:
-                    fid.write(f"{line}\n")
+        """ Save the configured script """
+        script_location = os.path.join(save_path, "launch_pbs.sh")
+        with open(script_location, "w") as fid:
+            for line in launch_script:
+                fid.write(f"{line}\n")
 
-            """ Launch the slurm jobs """
-            job_ids = []
-            name_condition = "N" in hyper_config["pbs"]["batch"]
-            slurm_job_name = (
-                hyper_config["pbs"]["batch"]["N"] if name_condition else "echo_trial"
+        """ Launch the slurm jobs """
+        job_ids = []
+        name_condition = "N" in hyper_config["pbs"]["batch"]
+        slurm_job_name = (
+            hyper_config["pbs"]["batch"]["N"] if name_condition else "echo_trial"
+        )
+        n_workers = hyper_config["pbs"]["jobs"]
+        for worker in range(n_workers):
+            w = subprocess.Popen(
+                f"qsub -N {slurm_job_name}_{worker} {script_location}",
+                shell=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            ).communicate()
+            job_ids.append(w[0].decode("utf-8").strip("\n"))
+            logging.info(
+                f"Submitted pbs batch job {worker + 1}/{n_workers} with id {job_ids[-1]}"
             )
-            n_workers = hyper_config["pbs"]["jobs"]
-            for worker in range(n_workers):
-                w = subprocess.Popen(
-                    f"qsub -N {slurm_job_name}_{worker} {script_location}",
-                    shell=True,
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                ).communicate()
-                job_ids.append(w[0].decode("utf-8").strip("\n"))
-                logging.info(
-                    f"Submitted pbs batch job {worker + 1}/{n_workers} with id {job_ids[-1]}"
-                )
 
-            """ Write the job ids to file for reference """
-            with open(os.path.join(save_path, "pbs_job_ids.txt"), "w") as fid:
-                for line in job_ids:
-                    fid.write(f"{line}\n")
+        """ Write the job ids to file for reference """
+        with open(os.path.join(save_path, "pbs_job_ids.txt"), "w") as fid:
+            for line in job_ids:
+                fid.write(f"{line}\n")
 
     os.chdir(current_directory)
 

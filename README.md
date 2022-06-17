@@ -224,7 +224,7 @@ def custom_updates(trial, conf):
 
 The method should be called first thing in the custom Objective.train method (see the example Objective above). You may have noticed that the configuration (named conf) contains both hyperparameter and model fields. This package will copy the hyperparameter optuna field to the model configuration for convenience, so that we can reduce the total number of class and method dependencies (which helps me keep the code generalized). This occurs in the run.py script.
 
-### Custom plot settings for report.py
+### Custom plot settings for echo-report
 
 The script report.py will load the current study, identify the best trial in the study, and will compute the relative importantance of each parameter using both fanova and MDI (see [here](https://optuna.readthedocs.io/en/v1.3.0/reference/importance.html) for details). 
 
