@@ -1,8 +1,8 @@
-save_path: "/glade/work/schreck/repos/echo-opt/echo/examples/fmc/test"
+save_path: "/glade/work/schreck/repos/echo-opt/echo/examples/torch/fmc"
 log: True
 
 pbs:
-  jobs: 10
+  jobs: 1
   kernel: "ncar_pylib /glade/work/$USER/py37" # ncar_20200417
   bash: ["source ~/.bashrc"]
   batch:
@@ -17,7 +17,7 @@ optuna:
   storage: "mlp.db"
   study_name: "mlp"
   storage_type: "sqlite"
-  objective: "/glade/work/schreck/repos/echo-opt/echo/examples/fmc/train_mlp.py"
+  objective: "/glade/work/schreck/repos/echo-opt/echo/examples/torch/fmc/train_mlp.py"
   direction: "minimize"
   metric: "valid_rmse"
   n_trials: 1000

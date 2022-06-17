@@ -1,5 +1,5 @@
 seed: 1000
-save_loc: "/glade/work/schreck/repos/echo-opt/echo/examples/fmc"
+save_loc: "/glade/work/schreck/repos/echo-opt/echo/examples/torch/fmc"
 data_loc: "/glade/scratch/jimenez/tmp/jpss_datasets/fmc_10h_training_conus2250m-v3.nc"
 verbose: True
 
