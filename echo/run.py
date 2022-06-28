@@ -77,7 +77,6 @@ def main():
         hyper_fn and model_fn
     ), "Usage: python run.py hyperparameter.yml model.yml"
     
-    sys.exit()
 
     """ Set up a logger """
     root = logging.getLogger()

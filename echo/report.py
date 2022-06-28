@@ -3,7 +3,7 @@ from echo.src.config import (
     configure_pruner,
 )
 from echo.src.reporting import study_report
-from echo.src.config import recursive_update
+from echo.src.config import recursive_update, recursive_config_reader
 
 import os
 import yaml
@@ -220,7 +220,8 @@ def main():
 
     """ Print the study report """
     complete_trials = study_report(study, hyper_config)
-    logging.info(f"Best trial: {study.best_trial.value}")
+    logging.info(f"Best trial value: {study.best_trial.value}")
+    logging.info(f"Best trial number: {study.best_trial.number}")
     logging.info("Best parameters in the study:")
     for param, val in study.best_params.items():
         logging.info(f"\t{param}: {val}")
@@ -230,11 +231,13 @@ def main():
     study.trials_dataframe().to_csv(save_fn, index=None)
 
     """ Save best parameters to new model configuration """
+    ### How to handle custom updates? 
     if model_config:
         best_fn = os.path.join(save_path, "best.yml")
         logging.info(f"Saving the best model configuration to {best_fn}")
         best_params = study.best_params
         hyperparameters = hyper_config["optuna"]["parameters"]
+        updated = []
         for named_parameter, _ in hyperparameters.items():
             if ":" in named_parameter:
                 split_name = named_parameter.split(":")
@@ -244,9 +247,29 @@ def main():
                     model_config,
                     best_value,
                 )
+                updated.append(named_parameter)
             else:
                 if named_parameter in model_config:
                     model_config[named_parameter] = best_params[named_parameter]
+                    updated.append([named_parameter])
+        # If updated != whats in the hyper config file, warn the user
+        observed = []
+        for (k, v) in recursive_config_reader(model_config):
+            for u in updated:
+                if ":".join(k) == u:
+                    observed.append(":".join(k))
+        not_updated = list(set(hyperparameters.keys()) - set(observed))
+        if len(not_updated):
+            logging.warn("Not all parameters were updated by ECHO")
+            logging.warn(
+                "There may be a mismatch between the model and hyper config files"
+            )
+            logging.warn("If using custom_updates, ignore this message")
+            logging.warn("If custom_updates, manually update the following in best.yml:")
+            for p in not_updated:
+                _p = p if ":" not in p else p.split(":")[-1]
+                logging.warn(f"\t{p} : {best_params[_p]}")
+        
         with open(best_fn, "w") as fid:
             yaml.dump(model_config, fid, default_flow_style=False)
     else:
@@ -258,19 +281,18 @@ def main():
     """ Create the optuna-supported figures """
     if single_objective:
         """Plot the optimization_history"""
-        #logging.info(f"Saving the optimization_history.pdf to {save_path}")
         plot_wrapper(study, "optimization_history", save_path, plot_config)
 
         #if not isinstance(pruner, optuna.pruners.NopPruner):
         """Plot the intermediate_values"""
-        logging.info(f"Attempting to plot the trial intermediate values if pruning was used")
+        logging.info(
+            f"Plotting intermediate values if pruning/epoch-updates was used")
         try:
             plot_wrapper(study, "intermediate_values", save_path, plot_config)
         except:
             pass
     else:
         """Plot the pareto front"""
-        #logging.info(f"Saving the pareto_front.pdf to {save_path}")
         plot_wrapper(study, "pareto_front", save_path, plot_config)
 
     """ Compute the optuna-supported parameter importances """
