@@ -258,16 +258,19 @@ def main():
     """ Create the optuna-supported figures """
     if single_objective:
         """Plot the optimization_history"""
-        logging.info(f"Saving the optimization_history.pdf to {save_path}")
+        #logging.info(f"Saving the optimization_history.pdf to {save_path}")
         plot_wrapper(study, "optimization_history", save_path, plot_config)
 
-        if not isinstance(pruner, optuna.pruners.NopPruner):
-            """Plot the intermediate_values"""
-            logging.info(f"Saving the intermediate_values.pdf to {save_path}")
+        #if not isinstance(pruner, optuna.pruners.NopPruner):
+        """Plot the intermediate_values"""
+        logging.info(f"Attempting to plot the trial intermediate values if pruning was used")
+        try:
             plot_wrapper(study, "intermediate_values", save_path, plot_config)
+        except:
+            pass
     else:
         """Plot the pareto front"""
-        logging.info(f"Saving the pareto_front.pdf to {save_path}")
+        #logging.info(f"Saving the pareto_front.pdf to {save_path}")
         plot_wrapper(study, "pareto_front", save_path, plot_config)
 
     """ Compute the optuna-supported parameter importances """

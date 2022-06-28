@@ -5,6 +5,7 @@ import time
 import optuna
 import logging
 import importlib.machinery
+from argparse import ArgumentParser
 
 from echo.src.config import (
     config_check,
@@ -28,21 +29,55 @@ warnings.filterwarnings("ignore")
 start_the_clock = time.time()
 
 
+def args():
+    parser = ArgumentParser(
+        description="echo-run: A distributed multi-gpu hyperparameter optimization package build with Optuna"
+    )
+    
+    parser.add_argument(
+        "hyperparameter",
+        type=str,
+        help="Path to the hyperparameter configuration containing your inputs.",
+    )
+
+    parser.add_argument(
+        "model",
+        type=str,
+        help="Path to the model configuration containing your inputs.",
+    )
+    
+    parser.add_argument(
+        "-n",
+        dest="node_id",
+        type=str,
+        help="PBS/SLURM job name/identification (default = None)",
+        default=None
+    )
+    
+    parser.add_argument(
+        "-w",
+        dest="wall_time",
+        type=str,
+        default="12:00:00",
+        help="Set the maximum running time in HH:MM:SS. (default = 12:00:00)",
+    )
+    
+    return vars(parser.parse_args())
+    
+
 def main():
+    
+    args_dict = args()
+    
+    hyper_fn = args_dict.pop("hyperparameter")
+    model_fn = args_dict.pop("model")
+    node_id = args_dict.pop("node_id")
 
-    if len(sys.argv) < 3 or len(sys.argv) > 4:
-        print(
-            "Usage: python run.py hyperparameter.yml model.yml [optinal PBS/SLURM job ID]"
-        )
-        sys.exit()
-
-    hyper_fn = str(sys.argv[1])
-    model_fn = str(sys.argv[2])
-
-    if len(sys.argv) == 4:
-        node_id = str(sys.argv[3])
-    else:
-        node_id = None
+    assert (
+        hyper_fn and model_fn
+    ), "Usage: python run.py hyperparameter.yml model.yml"
+    
+    sys.exit()
 
     """ Set up a logger """
     root = logging.getLogger()
@@ -165,6 +200,7 @@ def main():
     """ Get the cluster job wall-time """
     if "slurm" in hyper_config:
         wall_time = hyper_config["slurm"]["batch"]["t"]
+        logging.info(f"Running trials for a maximum slurm wall-time {wall_time}")
     elif "pbs" in hyper_config:
         wall_time = False
         for option in hyper_config["pbs"]["batch"]["l"]:
@@ -175,7 +211,12 @@ def main():
             logging.warning(
                 "Could not process the walltime for run.py. Assuming 12 hours."
             )
-            wall_time = "12:00:00"
+            wall_time = args_dict.pop("wall_time")
+        logging.info(f"Running trials for a maximum PBS wall-time {wall_time}")
+    else:
+        wall_time = args_dict.pop("wall_time")
+        logging.info(f"Running trials as main for default wall-time of {wall_time}")
+        logging.info(f"The wall-time is controlled by the -w option. See --help.")
     wall_time_secs = get_sec(wall_time)
 
     logging.warning("Attempting to run trials and stop before hitting the wall-time")
@@ -190,7 +231,7 @@ def main():
                 objective,
                 n_trials=1,
                 timeout=estimated_run_time,
-                # catch = (ValueError,)
+                # catch = (ValueError,) # Later to be added as a config option 
             )
         except KeyboardInterrupt:
             logging.warning("Recieved signal to die from keyboard. Exiting.")
@@ -198,7 +239,6 @@ def main():
         except Exception as E:
             logging.warning(f"Died due to due to error {E}")
             break
-            # continue
 
         """ Early stopping if too close to the wall time """
         df = study.trials_dataframe()
@@ -208,30 +248,32 @@ def main():
                 lambda x: True if x else False
             )
             run_times = df["run_time"][completed_runs].apply(
-                lambda x: x.total_seconds() / 3600.0
+                lambda x: x.total_seconds()
             )
             average_run_time = run_times.mean()
             sigma_run_time = run_times.std()
-
-            estimated_run_time = average_run_time + 2 * sigma_run_time
             time_left = wall_time_secs - (time.time() - start_the_clock)
-            if time_left < estimated_run_time:
+             
+            if average_run_time >= time_left:
                 logging.warning(
-                    "Stopping early as estimated run-time exceeds the time remaining on this node."
+                    "Stopping early since the average run-time exceeds the time remaining on this node."
                 )
                 break
 
         else:  # no trials in the database yet
             time_left = wall_time_secs - (time.time() - start_the_clock)
+            
             if time_left < (
                 wall_time_secs / 2
             ):  # if more than half the time remaining, launch another trial
                 logging.warning(
-                    "Stopping early as estimated run-time exceeds the time remaining on this node."
+                    "Stopping early since the average run-time exceeds the time remaining on this node."
                 )
                 break
-            else:
-                estimated_run_time = 0.95 * time_left
+                
+        """ Update the study optimizer timeout"""
+        time_left = wall_time_secs - (time.time() - start_the_clock)
+        estimated_run_time = 0.95 * time_left
 
 
 if __name__ == "__main__":

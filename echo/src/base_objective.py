@@ -66,17 +66,15 @@ class BaseObjective:
             else:
                 if named_parameter in conf:
                     conf[named_parameter] = trial_suggest_loader(trial, update)
-                    updated.append(named_parameter)
+                    updated.append([named_parameter])
 
         observed = []
         for (k, v) in recursive_config_reader(conf):
             for u in updated:
-                u = u.split(":")[-1] if len(u.split(":")) else u
-                if u in k:
-                    k = ":".join(k)
-                    logger.info(f"\t{k} : {v}")
-                    observed.append(k)
-
+                if ":".join(k) == u:
+                    u = u if ":" not in u else u.split(":")[-1]
+                    logger.info(f"\t{u} : {v}")
+                    observed.append(":".join(k))
         not_updated = list(set(hyperparameters.keys()) - set(observed))
         for p in not_updated:
             logger.warn(f"\t{p} was not auto-updated by ECHO")
@@ -145,8 +143,6 @@ class BaseObjective:
 
         """ Train the model """
         logger.info(f"Beginning trial {trial.number}")
-
-        """ Train the model! """
         result = self.train(trial, conf)
 
         """ Return the results """

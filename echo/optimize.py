@@ -16,6 +16,8 @@ import sys
 import os
 import warnings
 
+from typing import List, get_type_hints
+
 warnings.filterwarnings("ignore")
 
 
@@ -124,14 +126,12 @@ def args():
     return vars(parser.parse_args())
 
 
-def fix_broken_study(
-    _study: optuna.study.Study,
-    name: str,
-    storage: str,
-    direction: str,
-    sampler: optuna.samplers.BaseSampler,
-    pruner: optuna.pruners.NopPruner,
-):
+def fix_broken_study(_study: optuna.study.Study,
+                     name: str,
+                     storage: str,
+                     direction: str,
+                     sampler: optuna.samplers.BaseSampler,
+                     pruner: optuna.pruners.NopPruner) -> (optuna.study.Study, List[optuna.trial.Trial]):
 
     """
     This method removes broken trials, which are those
@@ -195,7 +195,8 @@ def fix_broken_study(
     return study_fixed, removed
 
 
-def prepare_slurm_launch_script(hyper_config: str, model_config: str):
+def prepare_slurm_launch_script(hyper_config: str, 
+                                model_config: str) -> List[str]:
 
     slurm_options = ["#!/bin/bash -l"]
     slurm_options += [
@@ -215,19 +216,22 @@ def prepare_slurm_launch_script(hyper_config: str, model_config: str):
         "trials_per_job" in hyper_config["slurm"]
         and hyper_config["slurm"]["trials_per_job"] > 1
     ):
+        logging.warning("The trails_per_job is experimental, be advised that some runs may fail")
+        logging.warning("Check the log and stdout/err files if simulations are dying to see the errors")
         for copy in range(hyper_config["slurm"]["trials_per_job"]):
             slurm_options.append(
-                f"{aiml_path} {sys.argv[1]} {sys.argv[2]} {slurm_id} &"
+                f"{aiml_path} {sys.argv[1]} {sys.argv[2]} -n {slurm_id} &"
             )
             # allow some time between calling instances of run
-            slurm_options.append("sleep 30")
+            slurm_options.append("sleep 0.5")
         slurm_options.append("wait")
     else:
-        slurm_options.append(f"{aiml_path} {sys.argv[1]} {sys.argv[2]} {slurm_id}")
+        slurm_options.append(f"{aiml_path} {sys.argv[1]} {sys.argv[2]} -n {slurm_id}")
     return slurm_options
 
 
-def prepare_pbs_launch_script(hyper_config: str, model_config: str):
+def prepare_pbs_launch_script(hyper_config: str, 
+                              model_config: str) -> List[str]:
 
     pbs_options = ["#!/bin/bash -l"]
     for arg, val in hyper_config["pbs"]["batch"].items():
@@ -254,14 +258,19 @@ def prepare_pbs_launch_script(hyper_config: str, model_config: str):
             pbs_options.append(f'{hyper_config["pbs"]["kernel"]}')
     aiml_path = "echo-run"
     pbs_jobid = "$PBS_JOBID"
-    if "trials_per_job" in hyper_config["pbs"]:
+    if (
+        "trials_per_job" in hyper_config["pbs"]
+        and hyper_config["pbs"]["trials_per_job"] > 1
+    ):
+        logging.warning("The trails_per_job is experimental, be advised that some runs may fail")
+        logging.warning("Check the log and stdout/err files if simulations are dying to see the errors")
         for copy in range(hyper_config["pbs"]["trials_per_job"]):
-            pbs_options.append(f"{aiml_path} {sys.argv[1]} {sys.argv[2]} {pbs_jobid} &")
+            pbs_options.append(f"{aiml_path} {sys.argv[1]} {sys.argv[2]} -n {pbs_jobid} &")
             # allow some time between calling instances of run
-            pbs_options.append("sleep 30")
+            pbs_options.append("sleep 0.5")
         pbs_options.append("wait")
     else:
-        pbs_options.append(f"{aiml_path} {sys.argv[1]} {sys.argv[2]} {pbs_jobid}")
+        pbs_options.append(f"{aiml_path} {sys.argv[1]} {sys.argv[2]} -n {pbs_jobid}")
     return pbs_options
 
 
