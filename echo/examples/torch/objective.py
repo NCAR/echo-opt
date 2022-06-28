@@ -15,7 +15,7 @@ from holodecml.vae.transforms import *
 from holodecml.vae.optimizers import *
 from holodecml.vae.data_loader import *
 from holodecml.vae.checkpointer import *
-from aimlutils.hyper_opt.base_objective import *
+from echo.src.base_objective import BaseObjective
 
 from torch import nn
 from torch.optim.lr_scheduler import *
@@ -46,9 +46,9 @@ def custom_updates(trial, conf):
 
 class Objective(BaseObjective):
     
-    def __init__(self, study, config, metric = "val_loss", device = "cpu"):
+    def __init__(self, config, metric = "val_loss", device = "cpu"):
         
-        BaseObjective.__init__(self, study, config, metric, device)
+        BaseObjective.__init__(self, config, metric, device)
         
         if self.device != "cpu":
             torch.backends.cudnn.benchmark = True
