@@ -241,6 +241,9 @@ def main():
         for named_parameter, _ in hyperparameters.items():
             if ":" in named_parameter:
                 split_name = named_parameter.split(":")
+                if split_name[-1] not in best_params:
+                    #logging.warning(f"Named parameter {named_parameter} could not be updated")
+                    continue
                 best_value = best_params[split_name[-1]]
                 recursive_update(
                     split_name,
@@ -264,11 +267,14 @@ def main():
             logging.warn(
                 "There may be a mismatch between the model and hyper config files"
             )
-            logging.warn("If using custom_updates, ignore this message")
-            logging.warn("If custom_updates, manually update the following in best.yml:")
+            logging.warn("If using custom_updates, ignore this message and update best.yml manually")
+            logging.warn("Otherwise, manually update the following in best.yml:")
             for p in not_updated:
                 _p = p if ":" not in p else p.split(":")[-1]
-                logging.warn(f"\t{p} : {best_params[_p]}")
+                if _p in best_params:
+                    logging.warn(f"\t{p} : {best_params[_p]}")
+                else:
+                    logging.warn(f"\t{p} could not be matched")
         
         with open(best_fn, "w") as fid:
             yaml.dump(model_config, fid, default_flow_style=False)

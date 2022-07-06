@@ -251,11 +251,12 @@ def main():
             )
             average_run_time = run_times.mean()
             sigma_run_time = run_times.std()
+            max_run_time = run_times.max()
             time_left = wall_time_secs - (time.time() - start_the_clock)
              
-            if average_run_time >= time_left:
+            if max_run_time >= time_left:
                 logging.warning(
-                    "Stopping early since the average run-time exceeds the time remaining on this node."
+                    "Stopping early since the longest observed run-time in the study exceeds the time remaining on this node."
                 )
                 break
 
@@ -266,7 +267,7 @@ def main():
                 wall_time_secs / 2
             ):  # if more than half the time remaining, launch another trial
                 logging.warning(
-                    "Stopping early since the average run-time exceeds the time remaining on this node."
+                     "Stopping early since the longest observed run-time in the study exceeds the time remaining on this node."
                 )
                 break
                 

@@ -28,12 +28,14 @@ class BaseObjective:
         self._summon = True
         self.worker_index = node_id
         self.results = defaultdict(list)
-        save_path = os.path.join(self.config["optuna"]["save_path"], "results")
-        os.makedirs(save_path, exist_ok=True)
         if node_id is not None:
-            self.results_fn = os.path.join(save_path, f"results_{str(node_id)}.csv")
+            save_path = os.path.join(self.config["optuna"]["save_path"], "trial_results")
+            os.makedirs(save_path, exist_ok=True)
+            self.save_path = save_path
+            self.results_fn = os.path.join(save_path, f"trial_results_{str(node_id)}.csv")
         else:
-            self.results_fn = os.path.join(save_path, "results.csv")
+            self.save_path = self.config["optuna"]["save_path"]
+            self.results_fn = os.path.join(save_path, "trial_results.csv")
 
         node_id = 0 if node_id is None else node_id
         logger.info(f"Worker {node_id} is summoned.")
@@ -126,6 +128,17 @@ class BaseObjective:
         logger.info(
             f"Saving trial {trial.number} results to local file {self.results_fn}"
         )
+        
+        """ If using multiple workers, merge all results so far"""
+        tmp_results = glob.glob(f"{self.save_path}/trial_results*.csv")
+        if len(tmp_results) > 1:
+            tmp_save = os.path.join(
+                self.config["optuna"]["save_path"], "trial_results.csv")
+            logger.info(
+                f"Merging trial results and saving to {tmp_save}"
+            )
+            df_full = pd.concat([pd.read_csv(x) for x in tmp_results])
+            df_full.sort_values("trial").to_csv(tmp_save)
 
         if single_objective:
             return results_dict[self.metric]
