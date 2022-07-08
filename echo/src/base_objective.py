@@ -69,7 +69,7 @@ class BaseObjective:
             else:
                 if named_parameter in conf:
                     conf[named_parameter] = trial_suggest_loader(trial, update)
-                    updated.append([named_parameter])
+                    updated.append(named_parameter)
 
         observed = []
         for (k, v) in recursive_config_reader(conf):
