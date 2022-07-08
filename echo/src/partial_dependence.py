@@ -4,6 +4,7 @@ from sklearn.preprocessing import StandardScaler
 import xgboost as xgb
 import numpy as np
 from sklearn.inspection import partial_dependence
+from sklearn.preprocessing import LabelEncoder
 import logging
 import warnings
 
