@@ -20,13 +20,13 @@ def partial_dep(fn, input_cols, output_col, verbose=0):
     
     hot = {}
     for param, dtype in df[input_cols].dtypes.to_dict().items():
-        if str(dtype) not in ["int", "float", "bool"]:
+        if not any(x in str(dtype) for x in ["int", "float", "bool"]):
             hot[param] = LabelEncoder()
             
     if len(hot):
         for param, le in hot.items():
             df[param] = le.fit_transform(df[param])
-
+            
     objective = "reg:squarederror"
     learning_rate = 0.075
     n_estimators = 1000
@@ -91,12 +91,14 @@ def partial_dep(fn, input_cols, output_col, verbose=0):
     return xgb_model, x_train, hot
 
 
+
 def plot_partial_dependence(f, metrics, save_path, verbose=0):
     input_cols = [x for x in f.columns if x.startswith("params_")]
     if isinstance(metrics, list):
         output_cols = [f"values_{k}" for k in range(len(metrics))]
     else:
         output_cols = ["value"]
+        metrics = [metrics]
 
     if len(input_cols) < 9:
         cols = 2
@@ -133,7 +135,7 @@ def plot_partial_dependence(f, metrics, save_path, verbose=0):
                 xlabel = input_cols[k]
             ax[outer][k % num].set_xlabel(xlabel)
             if k % num == 0:
-                ax[outer][k % num].set_ylabel(output_cols[0])
+                ax[outer][k % num].set_ylabel(f"{metric} PD")
             if input_cols[k] not in hot:
                 if max(y[0]) / min(y[0]) > 100:
                     ax[outer][k % num].set_xscale("log")

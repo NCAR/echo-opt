@@ -343,8 +343,6 @@ def main():
     """ Plot the partial dependences"""
     plot_partial_dependence(
         study.trials_dataframe(), metrics, save_path)
-    
-    sys.exit()
 
     """ Compute the optuna-supported parameter importances """
     if complete_trials > 1:
