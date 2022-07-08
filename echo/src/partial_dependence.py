@@ -82,8 +82,8 @@ def partial_dep(fn, input_cols, output_col, verbose=0):
     valid_sh = y_valid.shape[0]
     test_sh = y_test.shape[0]
 
-    info = f"\tTrain ({train_sh}) / valid ({valid_sh}) / test ({test_sh}) R2 scores: "
-    info += f"\t\t{xgb_model.score(x_train, y_train):.2f} / "
+    info = f"\tTrain ({train_sh}) / valid ({valid_sh}) / test ({test_sh})\tR2 scores: "
+    info += f"\t{xgb_model.score(x_train, y_train):.2f} / "
     info += f"{xgb_model.score(x_valid, y_valid):.2f} / "
     info += f"{xgb_model.score(x_valid, y_valid):.2f} "
     logger.info(info)
