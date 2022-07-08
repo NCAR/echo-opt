@@ -2,6 +2,7 @@ from echo.src.trial_suggest import trial_suggest_loader
 from echo.src.config import recursive_config_reader, recursive_update
 from collections import defaultdict
 import copy
+import glob
 import os
 import pandas as pd
 import logging
@@ -32,10 +33,10 @@ class BaseObjective:
             save_path = os.path.join(self.config["optuna"]["save_path"], "trial_results")
             os.makedirs(save_path, exist_ok=True)
             self.save_path = save_path
-            self.results_fn = os.path.join(save_path, f"trial_results_{str(node_id)}.csv")
+            self.results_fn = os.path.join(self.save_path, f"trial_results_{str(node_id)}.csv")
         else:
             self.save_path = self.config["optuna"]["save_path"]
-            self.results_fn = os.path.join(save_path, "trial_results.csv")
+            self.results_fn = os.path.join(self.save_path, "trial_results.csv")
 
         node_id = 0 if node_id is None else node_id
         logger.info(f"Worker {node_id} is summoned.")
@@ -74,7 +75,7 @@ class BaseObjective:
         for (k, v) in recursive_config_reader(conf):
             for u in updated:
                 if ":".join(k) == u:
-                    u = u if ":" not in u else u.split(":")[-1]
+                    #u = u if ":" not in u else u.split(":")[-1]
                     logger.info(f"\t{u} : {v}")
                     observed.append(":".join(k))
         not_updated = list(set(hyperparameters.keys()) - set(observed))
@@ -113,7 +114,9 @@ class BaseObjective:
             self.results[metric].append(value)
 
         """ Save pruning boolean """
-        self.results["pruned"] = int(trial.should_prune())
+        if isinstance(self.config["optuna"]["metric"], str):
+            self.results["pruned"] = int(trial.should_prune())
+        
         df = pd.DataFrame.from_dict(self.results)
 
         """ Save the df of results to disk """
@@ -143,7 +146,7 @@ class BaseObjective:
         if single_objective:
             return results_dict[self.metric]
         else:
-            return [self.results[metric] for metric in self.metric]
+            return [results_dict[metric] for metric in self.metric]
 
     def __call__(self, trial):
 

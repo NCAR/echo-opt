@@ -179,13 +179,12 @@ def fix_broken_study(_study: optuna.study.Study,
             load_if_exists=False,
         )
     else:
-        study_fixed = optuna.multi_objective.create_study(
+        study_fixed = optuna.create_study(
             study_name=name,
             storage=storage,
-            directions=direction,
             sampler=sampler,
-            pruner=pruner,
-            load_if_exists=False,
+            directions=direction,
+            load_if_exists=True
         )
 
     """ Add the working trials to the new study """
@@ -434,12 +433,11 @@ def main():
                 pruner=pruner,
             )
         else:
-            study = optuna.multi_objective.study.create_study(
+            study = optuna.create_study(
                 study_name=study_name,
                 storage=storage,
-                directions=direction,
                 sampler=sampler,
-                pruner=pruner,
+                directions=direction
             )
 
     else:
@@ -456,11 +454,10 @@ def main():
                 pruner=pruner,
             )
         else:
-            study = optuna.multi_objective.study.load_study(
+            study = optuna.load_study(
                 study_name=study_name,
                 storage=storage,
                 sampler=sampler,
-                pruner=pruner,
             )
         study, removed = fix_broken_study(
             study, study_name, storage, direction, sampler, pruner

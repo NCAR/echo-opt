@@ -13,8 +13,9 @@ from echo.src.config import (
     configure_sampler,
     configure_pruner,
 )
-from echo.src.reporting import successful_trials, get_sec, devices
+from echo.src.reporting import successful_trials, get_sec, devices, to_df
 import warnings
+import pandas as pd
 
 warnings.filterwarnings("ignore")
 
@@ -177,11 +178,10 @@ def main():
             load_if_exists=True,
         )
     else:
-        study = optuna.multi_objective.study.create_study(
+        study = optuna.create_study(
             study_name=study_name,
             storage=storage,
             sampler=sampler,
-            pruner=pruner,
             directions=direction,
             load_if_exists=True,
         )
@@ -240,7 +240,11 @@ def main():
             break
 
         """ Early stopping if too close to the wall time """
-        df = study.trials_dataframe()
+        if not isinstance(direction, list):
+            df = study.trials_dataframe()
+        else:
+            df = to_df(study)
+            
         if df.shape[0] > 1:
             df["run_time"] = df["datetime_complete"] - df["datetime_start"]
             completed_runs = df["datetime_complete"].apply(

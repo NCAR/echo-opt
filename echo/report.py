@@ -2,8 +2,9 @@ from echo.src.config import (
     configure_storage,
     configure_pruner,
 )
-from echo.src.reporting import study_report
+from echo.src.reporting import study_report, to_df
 from echo.src.config import recursive_update, recursive_config_reader
+from echo.src.partial_dependence import plot_partial_dependence
 
 import os
 import yaml
@@ -65,6 +66,15 @@ def args():
         default=64,
         help="The maximum depth to use in parameter importance models. Default is 64.",
     )
+    
+    parser.add_argument(
+        "-k",
+        "--top_k",
+        dest="topk",
+        type=int,
+        default=1,
+        help="For multi-objective studies, return the k best trials on the Pareto front. Default is 1.",
+    )
 
     return vars(parser.parse_args())
 
@@ -85,7 +95,7 @@ def update_figure(
     """
 
     if params is False:
-        fig.set_yscale("log")
+        #fig.set_yscale("log")
         mpl.rcParams.update({"figure.dpi": 300})
     else:
         if "rcparams" in params:
@@ -108,6 +118,7 @@ def plot_wrapper(
     identifier: str,
     save_path: str,
     params: Dict[str, str] = False,
+    metrics: str = None
 ):
 
     """
@@ -134,17 +145,17 @@ def plot_wrapper(
     elif identifier == "optimization_history":
         fig = optuna.visualization.matplotlib.plot_optimization_history(study)
     elif identifier == "pareto_front":
-        fig = optuna.multi_objective.visualization.plot_pareto_front(study)
+        fig = optuna.visualization.matplotlib.plot_pareto_front(
+            study, target_names = metrics)
     else:
         raise OSError(f"An incorrect optuna plot identifier {identifier} was used")
 
-    fig = update_figure(fig, params)
-
     if flag and "save_path" in params:
         save_path = params["save_path"]
-
-    figure_save_path = os.path.join(save_path, f"{identifier}.pdf")
-    plt.savefig(figure_save_path)
+    figure_save_path = os.path.join(save_path, f"{identifier}.png")
+        
+    fig = update_figure(fig, params)
+    plt.savefig(figure_save_path, dpi = 300)
 
     logging.info(f"Saving the {identifier} plot to file at {figure_save_path}")
 
@@ -160,6 +171,9 @@ def main():
     """ Options for the parameter importance tree models """
     n_trees = args_dict.pop("n_trees")
     max_depth = args_dict.pop("max_depth")
+    
+    """ Options for multi-objective studies"""
+    top_k = args_dict.pop("topk")
 
     """ Check if hyperparameter config file exists """
     assert os.path.isfile(
@@ -209,33 +223,57 @@ def main():
     """ Initialize study direction(s) """
     direction = hyper_config["optuna"]["direction"]
     single_objective = isinstance(direction, str)
+    
+    """ Select the optimization metric(s)"""
+    metrics = hyper_config["optuna"]["metric"]
 
     """ Load from database """
     if single_objective:
-        study = optuna.load_study(study_name=study_name, storage=storage, pruner=pruner)
-    else:
-        study = optuna.multi_objective.study.load_study(
+        study = optuna.load_study(
             study_name=study_name, storage=storage, pruner=pruner
         )
+    else:
+        study = optuna.load_study(
+            study_name=study_name, storage=storage
+        )
+#         def _is_multi_objective():
+#             return True
+#         study._is_multi_objective = _is_multi_objective
+#         study._study._is_multi_objective = _is_multi_objective
 
     """ Print the study report """
     complete_trials = study_report(study, hyper_config)
-    logging.info(f"Best trial value: {study.best_trial.value}")
-    logging.info(f"Best trial number: {study.best_trial.number}")
-    logging.info("Best parameters in the study:")
-    for param, val in study.best_params.items():
-        logging.info(f"\t{param}: {val}")
-
     save_fn = os.path.join(save_path, f"{study_name}.csv")
-    logging.info(f"Saving the results of the study to file at {save_fn}")
-    study.trials_dataframe().to_csv(save_fn, index=None)
+    
+    if single_objective:
+        logging.info(f"Best trial value: {study.best_trial.value}")
+        logging.info(f"Best trial number: {study.best_trial.number}")
+        logging.info("Best parameters in the study:")
+        for param, val in study.best_params.items():
+            logging.info(f"\t{param}: {val}")
+        logging.info(f"Saving the results of the study to file at {save_fn}")
+        study.trials_dataframe().to_csv(save_fn, index=None)
+    else:
+        best_trials = study.best_trials
+        logging.info(f"Number of trials on the pareto front: {len(best_trials)}")
+        if len(best_trials) == 0:
+            logging.warn(
+                "No trials are on the pareto front. Wait until more trials finish. Exiting.")
+            sys.exit()
+        logging.info("Best parameters in the study:")
+        for k, trial in enumerate(best_trials[:top_k]):
+            logging.info(f"\tTrial number: {trial.number}\tPareto rank: {k+1}")
+            logging.info(f"\tMetrics values: {trial.values}")
+            for param, val in trial.params.items():
+                logging.info(f"\t\t{param}: {val}")
+        study.trials_dataframe().to_csv(save_fn, index=None)
 
     """ Save best parameters to new model configuration """
     ### How to handle custom updates? 
     if model_config:
         best_fn = os.path.join(save_path, "best.yml")
         logging.info(f"Saving the best model configuration to {best_fn}")
-        best_params = study.best_params
+        best_params = study.best_params if single_objective else best_trials[0].params
         hyperparameters = hyper_config["optuna"]["parameters"]
         updated = []
         for named_parameter, _ in hyperparameters.items():
@@ -299,25 +337,51 @@ def main():
             pass
     else:
         """Plot the pareto front"""
-        plot_wrapper(study, "pareto_front", save_path, plot_config)
+        plot_wrapper(study, "pareto_front", save_path, plot_config, metrics = metrics)
+        
+        
+    """ Plot the partial dependences"""
+    plot_partial_dependence(
+        study.trials_dataframe(), metrics, save_path)
+    
+    sys.exit()
 
     """ Compute the optuna-supported parameter importances """
     if complete_trials > 1:
         try:
-            logging.info("Computing fAVNOVAimportances, this make take awhile")
-            f_importance = optuna.importance.FanovaImportanceEvaluator(
-                n_trees=n_trees, max_depth=max_depth
-            ).evaluate(study=study)
-            favnova = dict(f_importance)
-            logging.info("Computing MDI importances, this make take awhile")
-            mdi_importance = optuna.importance.MeanDecreaseImpurityImportanceEvaluator(
-                n_trees=n_trees, max_depth=max_depth
-            ).evaluate(study=study)
-            mdi = dict(mdi_importance)
-            logging.info("\tParameter\tfANOVA\t\tMDI")
-            for key, val in favnova.items():
-                mdi_val = mdi[key]
-                logging.info(f"\t{key}\t{val:.6f}\t{mdi_val:6f}")
+            if single_objective:
+                logging.info("Computing fAVNOVA importances, this make take awhile")
+                f_importance = optuna.importance.FanovaImportanceEvaluator(
+                    n_trees=n_trees, max_depth=max_depth
+                ).evaluate(study=study) 
+                favnova = dict(f_importance)
+                logging.info("Computing MDI importances, this make take awhile")
+                mdi_importance = optuna.importance.MeanDecreaseImpurityImportanceEvaluator(
+                    n_trees=n_trees, max_depth=max_depth
+                ).evaluate(study=study)
+                mdi = dict(mdi_importance)
+                logging.info(f"\tMetric: {metrics}")
+                logging.info("\t\tParameter\tfANOVA\t\tMDI")
+                for key, val in favnova.items():
+                    mdi_val = mdi[key]
+                    logging.info(f"\t\t{key}\t{val:.6f}\t{mdi_val:6f}")
+            else:
+                logging.info("Computing fAVNOVA and MDI importances, this make take awhile")
+                for k, metric in enumerate(metrics):
+                    f_importance = optuna.importance.FanovaImportanceEvaluator(
+                        n_trees=n_trees, max_depth=max_depth
+                    ).evaluate(study=study, target=lambda t: t.values[k]) 
+                    favnova = dict(f_importance)
+                    mdi_importance = optuna.importance.MeanDecreaseImpurityImportanceEvaluator(
+                        n_trees=n_trees, max_depth=max_depth
+                    ).evaluate(study=study, target=lambda t: t.values[k])
+                    mdi = dict(mdi_importance)
+                    logging.info(f"\tMetric: {metric}")
+                    logging.info("\t\tParameter\tfANOVA\t\tMDI")
+                    for key, val in favnova.items():
+                        mdi_val = mdi[key]
+                        logging.info(f"\t\t{key}\t{val:.6f}\t{mdi_val:6f}")
+                
         except Exception as E:  # Encountered zero total variance in all trees.
             logging.warning(f"Failed to compute parameter importance due to error: {E}")
             pass

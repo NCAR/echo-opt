@@ -2,7 +2,19 @@ import logging
 import warnings
 import subprocess
 import numpy as np
+import pandas as pd
 from collections import Counter
+
+import collections
+from typing import Any
+from typing import DefaultDict
+from typing import Dict
+from typing import List
+from typing import Set
+from typing import Tuple
+from optuna._imports import try_import
+from optuna.trial._state import TrialState
+from optuna import multi_objective
 
 warnings.filterwarnings("ignore")
 
@@ -40,7 +52,7 @@ def devices(gpu=False):
         except Exception as E:
             logger.warning(
                 f"The gpu is not responding to a call from nvidia-smi.\
-                Setting gpu device = 0, but this may fail. {str(E)}"
+                Setting device = cpu, but this may fail. {str(E)}"
             )
             device = 0
     else:
@@ -69,6 +81,92 @@ def trial_report(study):
     return state_histo
 
 
+def to_df(study):
+    attrs = (
+        "number",
+        "values",
+        #"intermediate_values",
+        "datetime_start",
+        "datetime_complete",
+        "params",
+        "user_attrs",
+        "system_attrs",
+        "state",
+    )
+    multi_index = False
+
+    trials = study.get_trials(deepcopy=False)
+
+    attrs_to_df_columns = collections.OrderedDict()
+    for attr in attrs:
+        if attr.startswith("_"):
+            # Python conventional underscores are omitted in the dataframe.
+            df_column = attr[1:]
+        else:
+            df_column = attr
+        attrs_to_df_columns[attr] = df_column
+
+    # column_agg is an aggregator of column names.
+    # Keys of column agg are attributes of `FrozenTrial` such as 'trial_id' and 'params'.
+    # Values are dataframe columns such as ('trial_id', '') and ('params', 'n_layers').
+    column_agg: DefaultDict[str, Set] = collections.defaultdict(set)
+    non_nested_attr = ""
+    
+    def _create_record_and_aggregate_column(
+        trial: "optuna.trial.FrozenTrial",
+    ) -> Dict[Tuple[str, str], Any]:
+        
+        n_objectives = len(study.directions)
+        trial = multi_objective.trial.FrozenMultiObjectiveTrial(
+            n_objectives,
+            trial,
+        )._trial
+        
+        record = {}
+        for attr, df_column in attrs_to_df_columns.items():
+            value = getattr(trial, attr)
+            if isinstance(value, TrialState):
+                # Convert TrialState to str and remove the common prefix.
+                value = str(value).split(".")[-1]
+            if isinstance(value, dict):
+                for nested_attr, nested_value in value.items():
+                    record[(df_column, nested_attr)] = nested_value
+                    column_agg[attr].add((df_column, nested_attr))
+            elif isinstance(value, list):
+                # Expand trial.values.
+                for nested_attr, nested_value in enumerate(value):
+                    record[(df_column, nested_attr)] = nested_value
+                    column_agg[attr].add((df_column, nested_attr))
+            elif attr == "values":
+                # trial.values should be None when the trial's state is FAIL or PRUNED.
+                #assert value is None
+                if value == None:
+                    value = [None for k in range(study.n_objectives)]
+                    
+                for nested_attr, nested_value in enumerate(value):
+                    record[(df_column, nested_attr)] = nested_value
+                    column_agg[attr].add((df_column, nested_attr))
+            else:
+                record[(df_column, non_nested_attr)] = value
+                column_agg[attr].add((df_column, non_nested_attr))
+        return record
+
+    records = [_create_record_and_aggregate_column(trial) for trial in trials]
+
+    columns: List[Tuple[str, str]] = sum(
+        (sorted(column_agg[k]) for k in attrs if k in column_agg), []
+    )
+
+    df = pd.DataFrame(records, columns=pd.MultiIndex.from_tuples(columns))
+
+    if not multi_index:
+        # Flatten the `MultiIndex` columns where names are concatenated with underscores.
+        # Filtering is required to omit non-nested columns avoiding unwanted trailing
+        # underscores.
+        df.columns = ["_".join(filter(lambda c: c, map(lambda c: str(c), col))) for col in columns]
+    return df
+                
+
 def study_report(study, hyper_config):
     n_trials = hyper_config["optuna"]["n_trials"]
     state_histo = trial_report(study)
@@ -81,7 +179,11 @@ def study_report(study, hyper_config):
 
     if total_completed_trials > 1:
         logger.info("\t...")
-        df = study.trials_dataframe()
+        if not isinstance(hyper_config["optuna"]["metric"], list):
+            df = study.trials_dataframe()
+        else:
+            df = study.trials_dataframe()
+            #df = to_df(study)
         df["run_time"] = df["datetime_complete"] - df["datetime_start"]
         completed_runs = df["datetime_complete"].apply(lambda x: True if x else False)
         run_time = df["run_time"][completed_runs].apply(
