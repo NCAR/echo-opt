@@ -240,11 +240,7 @@ def main():
             break
 
         """ Early stopping if too close to the wall time """
-        if not isinstance(direction, list):
-            df = study.trials_dataframe()
-        else:
-            df = to_df(study)
-            
+        df = study.trials_dataframe()
         if df.shape[0] > 1:
             df["run_time"] = df["datetime_complete"] - df["datetime_start"]
             completed_runs = df["datetime_complete"].apply(
