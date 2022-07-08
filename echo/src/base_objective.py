@@ -75,9 +75,12 @@ class BaseObjective:
         for (k, v) in recursive_config_reader(conf):
             for u in updated:
                 if ":".join(k) == u:
-                    #u = u if ":" not in u else u.split(":")[-1]
                     logger.info(f"\t{u} : {v}")
                     observed.append(":".join(k))
+                elif k == u:
+                    logger.info(f"\t{u} : {v}")
+                    observed.append(k)
+                    
         not_updated = list(set(hyperparameters.keys()) - set(observed))
         for p in not_updated:
             logger.warn(f"\t{p} was not auto-updated by ECHO")
