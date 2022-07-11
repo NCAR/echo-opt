@@ -1,4 +1,4 @@
-import sys 
+import sys
 import yaml
 import math
 import time
@@ -19,16 +19,12 @@ import numpy.fft as FFT
 from typing import List, Dict
 
 from sklearn.preprocessing import StandardScaler, MinMaxScaler, MaxAbsScaler, RobustScaler
-from tensorflow.keras.layers import (Input, Conv2D, Dense, Flatten, 
+from tensorflow.keras.layers import (Input, Conv2D, Dense, Flatten,
                                      MaxPool2D, RepeatVector, Lambda,
                                      LeakyReLU, Dropout)
 from tensorflow.keras.models import Model, save_model
 from tensorflow.keras.optimizers import Adam, SGD
 import tensorflow.keras.backend as K
-
-from keras_radam import RAdam
-from keras_radam.training import RAdamOptimizer
-
 
 
 class Conv2DNeuralNetwork(object):
@@ -56,34 +52,35 @@ class Conv2DNeuralNetwork(object):
         verbose: Level of detail to provide during training
         model: Keras Model object
     """
+
     def __init__(
-        self, 
-        filters=(8,), 
-        kernel_sizes=(5,),
-        conv2d_activation="relu", 
-        pool_sizes=(4,), 
-        pool_dropout=0.0,
-        dense_sizes=(64,),
-        dense_activation="relu", 
-        dense_dropout = 0.0,
-        output_activation="linear",
-        lr=0.001, 
-        optimizer="adam", 
-        adam_beta_1=0.9,
-        adam_beta_2=0.999, 
-        sgd_momentum=0.9, 
-        decay=0, 
-        loss="mse",
-        metrics = [], 
-        batch_size=32, 
-        epochs=2, 
-        verbose=0
+            self,
+            filters=(8,),
+            kernel_sizes=(5,),
+            conv2d_activation="relu",
+            pool_sizes=(4,),
+            pool_dropout=0.0,
+            dense_sizes=(64,),
+            dense_activation="relu",
+            dense_dropout=0.0,
+            output_activation="linear",
+            lr=0.001,
+            optimizer="adam",
+            adam_beta_1=0.9,
+            adam_beta_2=0.999,
+            sgd_momentum=0.9,
+            decay=0,
+            loss="mse",
+            metrics=(),
+            batch_size=32,
+            epochs=2,
+            verbose=0
     ):
-        
+
         self.filters = filters
-        self.kernel_sizes = [tuple((v,v)) for v in kernel_sizes]
+        self.kernel_sizes = [tuple((v, v)) for v in kernel_sizes]
         self.conv2d_activation = conv2d_activation
-        self.pool_sizes = [tuple((v,v)) for v in pool_sizes]
+        self.pool_sizes = [tuple((v, v)) for v in pool_sizes]
         self.pool_dropout = pool_dropout
         self.dense_sizes = dense_sizes
         self.dense_activation = dense_activation
@@ -102,7 +99,7 @@ class Conv2DNeuralNetwork(object):
         self.epochs = epochs
         self.verbose = verbose
         self.model = None
-        
+
         if self.conv2d_activation == "leakyrelu":
             self.conv2d_activation = LeakyReLU(alpha=0.1)
         if self.dense_activation == "leakyrelu":
@@ -112,10 +109,10 @@ class Conv2DNeuralNetwork(object):
 
     def build_neural_network(self, input_shape, n_particles, output_shape):
         """Create Keras neural network model and compile it."""
-        
+
         # Input
         conv_input = Input(shape=(input_shape), name="input")
-        
+
         # ConvNet encoder
         nn_model = conv_input
         for h in range(len(self.filters)):
@@ -128,10 +125,10 @@ class Conv2DNeuralNetwork(object):
             nn_model = MaxPool2D(self.pool_sizes[h], padding='same',
                                  name=f"maxpool2D_{h:02d}")(nn_model)
             if self.pool_dropout > 0.0:
-                nn_model = Dropout(self.pool_dropout, 
-                                   name = f"maxpool2D_dr_{h:02d}")(nn_model)
+                nn_model = Dropout(self.pool_dropout,
+                                   name=f"maxpool2D_dr_{h:02d}")(nn_model)
         nn_model = Flatten()(nn_model)
-        
+
         # Classifier
         for h in range(len(self.dense_sizes)):
             nn_model = Dense(self.dense_sizes[h],
@@ -139,51 +136,51 @@ class Conv2DNeuralNetwork(object):
                              kernel_initializer='he_uniform',
                              name=f"dense_{h:02d}")(nn_model)
             if self.dense_dropout > 0.0:
-                nn_model = Dropout(self.dense_dropout, 
+                nn_model = Dropout(self.dense_dropout,
                                    name=f"dense_dr_{h:02d}")(nn_model)
-        
+
         # Output
-        nn_model = RepeatVector(n_particles, name = "repeat")(nn_model)
+        nn_model = RepeatVector(n_particles, name="repeat")(nn_model)
         nn_model = Dense(output_shape,
                          activation=self.output_activation,
                          name=f"dense_output")(nn_model)
         nn_model = Lambda(
             self.LastLayer,
-            input_shape = (n_particles, output_shape)
+            input_shape=(n_particles, output_shape)
         )(nn_model)
-        
+
         self.model = Model(conv_input, nn_model)
-        
+
         if self.optimizer == "adam":
-            self.optimizer_obj = Adam(lr=self.lr, clipnorm = 1.0)
+            self.optimizer_obj = Adam(lr=self.lr, clipnorm=1.0)
         elif self.optimizer == "sgd":
             self.optimizer_obj = SGD(lr=self.lr, momentum=self.sgd_momentum,
                                      decay=self.decay)
-            
+
         self.model.compile(
-            optimizer=self.optimizer_obj, 
+            optimizer=self.optimizer_obj,
             loss=self.loss,
             metrics=self.metrics
         )
-        #self.model.summary()
+        # self.model.summary()
 
     def fit(self, x, y, xv=None, yv=None, callbacks=None):
-        
-        if len(x.shape[1:])==2:
+
+        if len(x.shape[1:]) == 2:
             x = np.expand_dims(x, axis=-1)
         if len(y.shape) == 1:
             output_shape = 1
         else:
             output_shape = y.shape[1]
-        
+
         input_shape = x.shape[1:]
         self.build_neural_network(input_shape, output_shape)
         self.model.fit(x, y, batch_size=self.batch_size, epochs=self.epochs,
                        verbose=self.verbose, validation_data=(xv, yv), callbacks=callbacks)
         return self.model.history.history
-    
+
     def LastLayer(self, x):
-        return 1.75 * K.tanh(x / 100) 
+        return 1.75 * K.tanh(x / 100)
 
     def predict(self, x):
         y_out = self.model.predict(np.expand_dims(x, axis=-1),
@@ -193,13 +190,13 @@ class Conv2DNeuralNetwork(object):
     def predict_proba(self, x):
         y_prob = self.model.predict(x, batch_size=self.batch_size)
         return y_prob
-    
+
     def load_weights(self, weights):
         try:
             self.model.load_weights(weights)
             self.model.compile(
-                optimizer=self.optimizer, 
-                loss=self.loss, 
+                optimizer=self.optimizer,
+                loss=self.loss,
                 metrics=self.metrics
             )
         except:

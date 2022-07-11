@@ -13,7 +13,7 @@ from echo.src.config import (
     configure_sampler,
     configure_pruner,
 )
-from echo.src.reporting import successful_trials, get_sec, devices, to_df
+from echo.src.reporting import successful_trials, get_sec, devices
 import warnings
 import pandas as pd
 
@@ -240,11 +240,7 @@ def main():
             break
 
         """ Early stopping if too close to the wall time """
-        if not isinstance(direction, list):
-            df = study.trials_dataframe()
-        else:
-            df = to_df(study)
-            
+        df = study.trials_dataframe()
         if df.shape[0] > 1:
             df["run_time"] = df["datetime_complete"] - df["datetime_start"]
             completed_runs = df["datetime_complete"].apply(

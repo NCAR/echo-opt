@@ -17,7 +17,6 @@ from optuna.trial._state import TrialState
 from optuna import multi_objective
 import optuna
 
-
 warnings.filterwarnings("ignore")
 
 
