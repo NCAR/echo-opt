@@ -1,6 +1,6 @@
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
+from sklearn.preprocessing import StandardScaler, LabelEncoder
 import xgboost as xgb
 import numpy as np
 from sklearn.inspection import partial_dependence

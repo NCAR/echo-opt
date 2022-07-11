@@ -10,7 +10,6 @@ from optuna.samplers._cmaes import CmaEsSampler
 from optuna.samplers._base import BaseSampler
 from optuna.samplers.__init__ import __all__ as supported_samplers
 import logging
-import sys
 import warnings
 warnings.filterwarnings("ignore")
 

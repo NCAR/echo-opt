@@ -80,13 +80,13 @@ class BaseObjective:
                     observed.append(":".join(k))
         not_updated = list(set(hyperparameters.keys()) - set(observed))
         for p in not_updated:
-            logger.warn(f"\t{p} was not auto-updated by ECHO")
+            logger.warning(f"\t{p} was not auto-updated by ECHO")
         if len(not_updated):
-            logger.warn("Not all parameters were updated by ECHO")
-            logger.warn(
+            logger.warning("Not all parameters were updated by ECHO")
+            logger.warning(
                 "There may be a mismatch between the model and hyper config files"
             )
-            logger.warn("If using custom_updates, ignore this message")
+            logger.warning("If using custom_updates, ignore this message")
 
         return conf
 

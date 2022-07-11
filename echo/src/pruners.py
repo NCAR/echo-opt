@@ -7,7 +7,7 @@ from optuna.pruners._median import MedianPruner
 from optuna.pruners._hyperband import HyperbandPruner
 from optuna.pruners._base import BasePruner
 from optuna.pruners.__init__ import __all__ as supported_pruners
-from tensorflow.keras.callbacks import Callback
+from tensorflow.python.keras.callbacks import Callback
 from typing import Dict
 import logging
 import optuna

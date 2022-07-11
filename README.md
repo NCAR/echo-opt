@@ -1,22 +1,26 @@
 # **E**arth **C**omputing **H**yperparameter **O**ptimization (ECHO): A distributed hyperparameter optimization package build with Optuna
 
 ### Install
+```bash
 pip install git+https://github.com/NCAR/echo-opt.git
-
+```
 Several commands will be placed onto the PATH:
 echo-opt, echo-report, echo-run
 
 ### Usage
 Launch a new optimization study:
-```python
+
+```bash
 echo-opt hyperparameters.yml model_config.yml
 ```
 Produce a report about the results saved in the study:
-```python
+
+```bash
 echo-report hyperparameters.yml [-p plot_config.yml] [-m model_config.yml]
 ```
 Run one trial:
-```python
+
+```bash
 echo-run hyperparameters.yml model_config.yml
 ```
 
@@ -36,7 +40,7 @@ The custom **Objective** class (objective.py) must inherit a **BaseObjective** c
 
 ```python
 from echo.src.base_objective import *
-from echo.src.pruning import KerasPruningCallback
+from echo.src.pruners import KerasPruningCallback
 
 class Objective(BaseObjective):
 
@@ -50,15 +54,15 @@ class Objective(BaseObjective):
         # Make any custom edits to the model conf before using it to train a model.
         conf = custom_updates(trial, conf)
 
-        ... (load data sets, build model, etc)
+        # ... (load data sets, build model, etc)
 
         callbacks = [KerasPruningCallback(trial, self.metric, interval = 1)]
-        result = Model.fit(..., callbacks = callbacks)
+        result = Model.fit(..., callbacks=callbacks)
 
         results_dictionary = {
             "val_loss": result["val_loss"],
             "loss": result["loss"],
-            ...
+            #...
             "val_accuracy": result["val_accuracy"]
         }
         return results_dictionary
