@@ -15,6 +15,8 @@ from typing import Tuple
 from optuna._imports import try_import
 from optuna.trial._state import TrialState
 from optuna import multi_objective
+import optuna
+
 
 warnings.filterwarnings("ignore")
 
