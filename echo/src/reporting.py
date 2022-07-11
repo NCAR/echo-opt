@@ -15,6 +15,7 @@ from typing import Tuple
 from optuna._imports import try_import
 from optuna.trial._state import TrialState
 from optuna import multi_objective
+import optuna
 
 warnings.filterwarnings("ignore")
 
@@ -179,11 +180,7 @@ def study_report(study, hyper_config):
 
     if total_completed_trials > 1:
         logger.info("\t...")
-        if not isinstance(hyper_config["optuna"]["metric"], list):
-            df = study.trials_dataframe()
-        else:
-            df = study.trials_dataframe()
-            #df = to_df(study)
+        df = study.trials_dataframe()
         df["run_time"] = df["datetime_complete"] - df["datetime_start"]
         completed_runs = df["datetime_complete"].apply(lambda x: True if x else False)
         run_time = df["run_time"][completed_runs].apply(

@@ -2,7 +2,7 @@ from echo.src.config import (
     configure_storage,
     configure_pruner,
 )
-from echo.src.reporting import study_report, to_df
+from echo.src.reporting import study_report
 from echo.src.config import recursive_update, recursive_config_reader
 from echo.src.partial_dependence import plot_partial_dependence
 

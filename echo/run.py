@@ -13,7 +13,7 @@ from echo.src.config import (
     configure_sampler,
     configure_pruner,
 )
-from echo.src.reporting import successful_trials, get_sec, devices, to_df
+from echo.src.reporting import successful_trials, get_sec, devices
 import warnings
 import pandas as pd
 
