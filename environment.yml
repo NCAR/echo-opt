@@ -1,6 +1,7 @@
 name: echo
 channels:
  - conda-forge
+ - pytorch
 dependencies:
   - python=3.8
   - sphinx
@@ -23,8 +24,8 @@ dependencies:
   - pip
   - s3fs
   - pyarrow
-  - torch
+  - pytorch
   - torchvision
+  - tensorflow
   - pip:
-    - tensorflow
     - .
