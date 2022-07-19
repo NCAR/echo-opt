@@ -192,6 +192,7 @@ def study_report(study, hyper_config):
         )
         logger.info(f"\tTotal study simulation run time: {run_time.sum():.4f} hrs")
         logger.info(f"\tAverage trial simulation run time: {run_time.mean():.4f} hrs")
+        logger.info(f"\tThe longest trial took {run_time.max():.4f} hrs")
 
     if (total_completed_trials < n_trials) and (total_completed_trials > 1):
 
