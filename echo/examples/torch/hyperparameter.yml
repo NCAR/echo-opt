@@ -1,0 +1,62 @@
+log: True
+save_path: "data"
+
+pbs:
+  jobs: 1
+  trials_per_job: 1
+  bash: ["source ~/.bashrc", "ncar_pylib /glade/work/$USER/py37"]
+  batch:
+    l: ["select=1:ncpus=8:ngpus=1:mem=64GB", "walltime=12:00:00"]
+    A: "NAML0001"
+    q: "casper"
+    N: "torch_example"
+    o: "out"
+    e: "err"
+
+optuna:
+  study_name: "torch-cifar"
+  storage: "cifar.db"
+  storage_type: "sqlite"
+  objective: "objective.py"
+  direction: "maximize"
+  metric: "valid_accuracy"
+  n_trials: 500
+  gpu: True
+  sampler:
+    type: "TPESampler"
+    n_startup_trials: 50
+  pruner:
+    type: "MedianPruner"
+    n_startup_trials: 30
+    n_min_trials: 50
+  parameters:
+    learning_rate:
+      type: "loguniform"
+      settings:
+        name: "learning_rate"
+        low: 0.00000001
+        high: 0.01
+    filter1:
+      type: "int"
+      settings:
+          name: "filter1"
+          low: 1
+          high: 512
+    filter2:
+      type: "int"
+      settings:
+          name: "filter2"
+          low: 1
+          high: 512
+    batch_size: 
+      type: "int"
+      settings:
+        name: "batch_size"
+        low: 16
+        high: 512
+    dropout:
+      type: "float"
+      settings:
+        name: "dropout"
+        low: 0.0
+        high: 0.5
