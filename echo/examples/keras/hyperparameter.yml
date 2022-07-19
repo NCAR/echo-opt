@@ -1,5 +1,5 @@
 log: True
-save_path: "data"
+save_path: "echo/examples/keras/data"
 
 pbs:
   jobs: 1
@@ -10,14 +10,14 @@ pbs:
     A: "NAML0001"
     q: "casper"
     N: "keras_example"
-    o: "out"
-    e: "err"
+    o: "echo/examples/keras/out"
+    e: "echo/examples/keras/err"
 
 optuna:
   study_name: "keras-cifar"
   storage: "cifar.db"
   storage_type: "sqlite"
-  objective: "objective.py"
+  objective: "echo/examples/keras/objective.py"
   direction: "maximize"
   metric: "val_accuracy"
   n_trials: 500

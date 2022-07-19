@@ -1,5 +1,5 @@
 log: True
-save_path: "data"
+save_path: "echo/examples/torch/data"
 
 pbs:
   jobs: 1
@@ -10,14 +10,14 @@ pbs:
     A: "NAML0001"
     q: "casper"
     N: "torch_example"
-    o: "out"
-    e: "err"
+    o: "echo/examples/torch/out"
+    e: "echo/examples/torch/err"
 
 optuna:
   study_name: "torch-cifar"
   storage: "cifar.db"
   storage_type: "sqlite"
-  objective: "objective.py"
+  objective: "echo/examples/torch/objective.py"
   direction: "maximize"
   metric: "valid_accuracy"
   n_trials: 500

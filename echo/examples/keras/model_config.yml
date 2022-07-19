@@ -1,4 +1,4 @@
-path_save: "data"
+path_save: "echo/examples/keras/data"
 seed: 1000
 
 learning_rate: 0.001
@@ -18,11 +18,3 @@ callbacks:
     patience: 3
     min_lr: 0.000000001
     mode: "auto"
-#   ModelCheckpoint:
-#     filepath: "best.hdf5"
-#     monitor: "val_accuracy"
-#     save_format: "tf"
-#     save_weights: 0
-#     save_best_only: 0
-#     mode: "max"
-#     verbose: 1
