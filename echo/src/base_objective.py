@@ -30,10 +30,14 @@ class BaseObjective:
         self.worker_index = node_id
         self.results = defaultdict(list)
         if node_id is not None:
-            save_path = os.path.join(self.config["optuna"]["save_path"], "trial_results")
+            save_path = os.path.join(
+                self.config["optuna"]["save_path"], "trial_results"
+            )
             os.makedirs(save_path, exist_ok=True)
             self.save_path = save_path
-            self.results_fn = os.path.join(self.save_path, f"trial_results_{str(node_id)}.csv")
+            self.results_fn = os.path.join(
+                self.save_path, f"trial_results_{str(node_id)}.csv"
+            )
         else:
             self.save_path = self.config["optuna"]["save_path"]
             self.results_fn = os.path.join(self.save_path, "trial_results.csv")
@@ -80,7 +84,7 @@ class BaseObjective:
                 elif k == u:
                     logger.info(f"\t{u} : {v}")
                     observed.append(k)
-                    
+
         not_updated = list(set(hyperparameters.keys()) - set(observed))
         for p in not_updated:
             logger.warning(f"\t{p} was not auto-updated by ECHO")
@@ -119,7 +123,7 @@ class BaseObjective:
         """ Save pruning boolean """
         if isinstance(self.config["optuna"]["metric"], str):
             self.results["pruned"] = int(trial.should_prune())
-        
+
         df = pd.DataFrame.from_dict(self.results)
 
         """ Save the df of results to disk """
@@ -134,15 +138,14 @@ class BaseObjective:
         logger.info(
             f"Saving trial {trial.number} results to local file {self.results_fn}"
         )
-        
+
         """ If using multiple workers, merge all results so far"""
         tmp_results = glob.glob(f"{self.save_path}/trial_results*.csv")
         if len(tmp_results) > 1:
             tmp_save = os.path.join(
-                self.config["optuna"]["save_path"], "trial_results.csv")
-            logger.info(
-                f"Merging trial results and saving to {tmp_save}"
+                self.config["optuna"]["save_path"], "trial_results.csv"
             )
+            logger.info(f"Merging trial results and saving to {tmp_save}")
             df_full = pd.concat([pd.read_csv(x) for x in tmp_results])
             df_full.sort_values("trial").to_csv(tmp_save)
 

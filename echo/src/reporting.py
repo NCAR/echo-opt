@@ -12,7 +12,6 @@ from typing import Dict
 from typing import List
 from typing import Set
 from typing import Tuple
-from optuna._imports import try_import
 from optuna.trial._state import TrialState
 from optuna import multi_objective
 import optuna
@@ -86,7 +85,7 @@ def to_df(study):
     attrs = (
         "number",
         "values",
-        #"intermediate_values",
+        # "intermediate_values",
         "datetime_start",
         "datetime_complete",
         "params",
@@ -112,17 +111,17 @@ def to_df(study):
     # Values are dataframe columns such as ('trial_id', '') and ('params', 'n_layers').
     column_agg: DefaultDict[str, Set] = collections.defaultdict(set)
     non_nested_attr = ""
-    
+
     def _create_record_and_aggregate_column(
         trial: "optuna.trial.FrozenTrial",
     ) -> Dict[Tuple[str, str], Any]:
-        
+
         n_objectives = len(study.directions)
         trial = multi_objective.trial.FrozenMultiObjectiveTrial(
             n_objectives,
             trial,
         )._trial
-        
+
         record = {}
         for attr, df_column in attrs_to_df_columns.items():
             value = getattr(trial, attr)
@@ -140,10 +139,10 @@ def to_df(study):
                     column_agg[attr].add((df_column, nested_attr))
             elif attr == "values":
                 # trial.values should be None when the trial's state is FAIL or PRUNED.
-                #assert value is None
-                if value == None:
+                # assert value is None
+                if value is None:
                     value = [None for k in range(study.n_objectives)]
-                    
+
                 for nested_attr, nested_value in enumerate(value):
                     record[(df_column, nested_attr)] = nested_value
                     column_agg[attr].add((df_column, nested_attr))
@@ -164,9 +163,11 @@ def to_df(study):
         # Flatten the `MultiIndex` columns where names are concatenated with underscores.
         # Filtering is required to omit non-nested columns avoiding unwanted trailing
         # underscores.
-        df.columns = ["_".join(filter(lambda c: c, map(lambda c: str(c), col))) for col in columns]
+        df.columns = [
+            "_".join(filter(lambda c: c, map(lambda c: str(c), col))) for col in columns
+        ]
     return df
-                
+
 
 def study_report(study, hyper_config):
     n_trials = hyper_config["optuna"]["n_trials"]
@@ -184,7 +185,7 @@ def study_report(study, hyper_config):
             df = study.trials_dataframe()
         else:
             df = study.trials_dataframe()
-            #df = to_df(study)
+            # df = to_df(study)
         df["run_time"] = df["datetime_complete"] - df["datetime_start"]
         completed_runs = df["datetime_complete"].apply(lambda x: True if x else False)
         run_time = df["run_time"][completed_runs].apply(

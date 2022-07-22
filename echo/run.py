@@ -1,5 +1,4 @@
 import os
-import sys
 import yaml
 import time
 import optuna
@@ -15,7 +14,6 @@ from echo.src.config import (
 )
 from echo.src.reporting import successful_trials, get_sec, devices
 import warnings
-import pandas as pd
 
 warnings.filterwarnings("ignore")
 
@@ -34,7 +32,7 @@ def args():
     parser = ArgumentParser(
         description="echo-run: A distributed multi-gpu hyperparameter optimization package build with Optuna"
     )
-    
+
     parser.add_argument(
         "hyperparameter",
         type=str,
@@ -46,15 +44,15 @@ def args():
         type=str,
         help="Path to the model configuration containing your inputs.",
     )
-    
+
     parser.add_argument(
         "-n",
         dest="node_id",
         type=str,
         help="PBS/SLURM job name/identification (default = None)",
-        default=None
+        default=None,
     )
-    
+
     parser.add_argument(
         "-w",
         dest="wall_time",
@@ -62,22 +60,19 @@ def args():
         default="12:00:00",
         help="Set the maximum running time in HH:MM:SS. (default = 12:00:00)",
     )
-    
+
     return vars(parser.parse_args())
-    
+
 
 def main():
-    
+
     args_dict = args()
-    
+
     hyper_fn = args_dict.pop("hyperparameter")
     model_fn = args_dict.pop("model")
     node_id = args_dict.pop("node_id")
 
-    assert (
-        hyper_fn and model_fn
-    ), "Usage: python run.py hyperparameter.yml model.yml"
-    
+    assert hyper_fn and model_fn, "Usage: python run.py hyperparameter.yml model.yml"
 
     """ Set up a logger """
     root = logging.getLogger()
@@ -215,7 +210,7 @@ def main():
     else:
         wall_time = args_dict.pop("wall_time")
         logging.info(f"Running trials as main for default wall-time of {wall_time}")
-        logging.info(f"The wall-time is controlled by the -w option. See --help.")
+        logging.info("The wall-time is controlled by the -w option. See --help.")
     wall_time_secs = get_sec(wall_time)
 
     logging.warning("Attempting to run trials and stop before hitting the wall-time")
@@ -230,7 +225,7 @@ def main():
                 objective,
                 n_trials=1,
                 timeout=estimated_run_time,
-                # catch = (ValueError,) # Later to be added as a config option 
+                # catch = (ValueError,) # Later to be added as a config option
             )
         except KeyboardInterrupt:
             logging.warning("Recieved signal to die from keyboard. Exiting.")
@@ -249,11 +244,9 @@ def main():
             run_times = df["run_time"][completed_runs].apply(
                 lambda x: x.total_seconds()
             )
-            average_run_time = run_times.mean()
-            sigma_run_time = run_times.std()
             max_run_time = run_times.max()
             time_left = wall_time_secs - (time.time() - start_the_clock)
-             
+
             if max_run_time >= time_left:
                 logging.warning(
                     "Stopping early since the longest observed run-time in the study exceeds the time remaining on this node."
@@ -262,15 +255,15 @@ def main():
 
         else:  # no trials in the database yet
             time_left = wall_time_secs - (time.time() - start_the_clock)
-            
+
             if time_left < (
                 wall_time_secs / 2
             ):  # if more than half the time remaining, launch another trial
                 logging.warning(
-                     "Stopping early since the longest observed run-time in the study exceeds the time remaining on this node."
+                    "Stopping early since the longest observed run-time in the study exceeds the time remaining on this node."
                 )
                 break
-                
+
         """ Update the study optimizer timeout"""
         time_left = wall_time_secs - (time.time() - start_the_clock)
         estimated_run_time = 0.95 * time_left

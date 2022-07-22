@@ -112,10 +112,10 @@ class Objective(BaseObjective):
             lr=learning_rate,
         )
 
-        ### Load loss
+        # Load loss
         criterion = torch.nn.NLLLoss()
 
-        ### Load schedulers
+        # Load schedulers
         lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
             optimizer, patience=lr_patience, verbose=verbose, min_lr=1.0e-13
         )
@@ -179,7 +179,7 @@ class Objective(BaseObjective):
             results_dict["valid_accuracy"].append(np.mean(val_accuracy))
 
             if verbose:
-                print_str = f'Epoch: {epoch + 1}'
+                print_str = f"Epoch: {epoch + 1}"
                 print_str += f' train_acc: {results_dict["train_accuracy"][-1]:.4f}'
                 print_str += f' valid_acc: {results_dict["valid_accuracy"][-1]:.4f}'
                 print(print_str)
@@ -196,5 +196,5 @@ class Objective(BaseObjective):
             offset = epoch - best_epoch
             if offset >= stopping_patience:
                 break
- 
+
         return {key: value[best_epoch] for key, value in results_dict.items()}

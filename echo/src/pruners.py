@@ -1,17 +1,10 @@
-from optuna.pruners._threshold import ThresholdPruner
-from optuna.pruners._successive_halving import SuccessiveHalvingPruner
-from optuna.pruners._percentile import PercentilePruner
-from optuna.pruners._patient import PatientPruner
-from optuna.pruners._nop import NopPruner
-from optuna.pruners._median import MedianPruner
-from optuna.pruners._hyperband import HyperbandPruner
-from optuna.pruners._base import BasePruner
 from optuna.pruners.__init__ import __all__ as supported_pruners
 from tensorflow.python.keras.callbacks import Callback
 from typing import Dict
 import logging
 import optuna
 import warnings
+
 warnings.filterwarnings("ignore")
 
 
@@ -21,7 +14,9 @@ logger = logging.getLogger(__name__)
 def pruners(pruner):
     _type = pruner.pop("type")
 
-    assert _type in supported_pruners, f"Pruner {_type} is not valid. Select from {supported_pruners}"
+    assert (
+        _type in supported_pruners
+    ), f"Pruner {_type} is not valid. Select from {supported_pruners}"
 
     if _type == "BasePruner":
         return optuna.pruners.BasePruner(**pruner)

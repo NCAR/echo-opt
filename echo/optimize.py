@@ -16,7 +16,7 @@ import sys
 import os
 import warnings
 
-from typing import List, get_type_hints
+from typing import List
 
 warnings.filterwarnings("ignore")
 
@@ -126,12 +126,14 @@ def args():
     return vars(parser.parse_args())
 
 
-def fix_broken_study(_study: optuna.study.Study,
-                     name: str,
-                     storage: str,
-                     direction: str,
-                     sampler: optuna.samplers.BaseSampler,
-                     pruner: optuna.pruners.NopPruner) -> (optuna.study.Study, List[optuna.trial.Trial]):
+def fix_broken_study(
+    _study: optuna.study.Study,
+    name: str,
+    storage: str,
+    direction: str,
+    sampler: optuna.samplers.BaseSampler,
+    pruner: optuna.pruners.NopPruner,
+) -> (optuna.study.Study, List[optuna.trial.Trial]):
 
     """
     This method removes broken trials, which are those
@@ -184,7 +186,7 @@ def fix_broken_study(_study: optuna.study.Study,
             storage=storage,
             sampler=sampler,
             directions=direction,
-            load_if_exists=True
+            load_if_exists=True,
         )
 
     """ Add the working trials to the new study """
@@ -194,8 +196,7 @@ def fix_broken_study(_study: optuna.study.Study,
     return study_fixed, removed
 
 
-def prepare_slurm_launch_script(hyper_config: str, 
-                                model_config: str) -> List[str]:
+def prepare_slurm_launch_script(hyper_config: str, model_config: str) -> List[str]:
 
     slurm_options = ["#!/bin/bash -l"]
     slurm_options += [
@@ -215,8 +216,12 @@ def prepare_slurm_launch_script(hyper_config: str,
         "trials_per_job" in hyper_config["slurm"]
         and hyper_config["slurm"]["trials_per_job"] > 1
     ):
-        logging.warning("The trails_per_job is experimental, be advised that some runs may fail")
-        logging.warning("Check the log and stdout/err files if simulations are dying to see the errors")
+        logging.warning(
+            "The trails_per_job is experimental, be advised that some runs may fail"
+        )
+        logging.warning(
+            "Check the log and stdout/err files if simulations are dying to see the errors"
+        )
         for copy in range(hyper_config["slurm"]["trials_per_job"]):
             slurm_options.append(
                 f"{aiml_path} {sys.argv[1]} {sys.argv[2]} -n {slurm_id} &"
@@ -229,8 +234,7 @@ def prepare_slurm_launch_script(hyper_config: str,
     return slurm_options
 
 
-def prepare_pbs_launch_script(hyper_config: str, 
-                              model_config: str) -> List[str]:
+def prepare_pbs_launch_script(hyper_config: str, model_config: str) -> List[str]:
 
     pbs_options = ["#!/bin/bash -l"]
     for arg, val in hyper_config["pbs"]["batch"].items():
@@ -261,10 +265,16 @@ def prepare_pbs_launch_script(hyper_config: str,
         "trials_per_job" in hyper_config["pbs"]
         and hyper_config["pbs"]["trials_per_job"] > 1
     ):
-        logging.warning("The trails_per_job is experimental, be advised that some runs may fail")
-        logging.warning("Check the log and stdout/err files if simulations are dying to see the errors")
+        logging.warning(
+            "The trails_per_job is experimental, be advised that some runs may fail"
+        )
+        logging.warning(
+            "Check the log and stdout/err files if simulations are dying to see the errors"
+        )
         for copy in range(hyper_config["pbs"]["trials_per_job"]):
-            pbs_options.append(f"{aiml_path} {sys.argv[1]} {sys.argv[2]} -n {pbs_jobid} &")
+            pbs_options.append(
+                f"{aiml_path} {sys.argv[1]} {sys.argv[2]} -n {pbs_jobid} &"
+            )
             # allow some time between calling instances of run
             pbs_options.append("sleep 0.5")
         pbs_options.append("wait")
@@ -308,7 +318,6 @@ def main():
     root.addHandler(ch)
 
     """ Override other options in hyperparameter config file, if supplied """
-    save_confs = sum([1 for key, val in args_dict.items() if type(val) != bool])
     for name, val in args_dict.items():
         if val and (name in hyper_config):
             if name == "save_path":
@@ -437,7 +446,7 @@ def main():
                 study_name=study_name,
                 storage=storage,
                 sampler=sampler,
-                directions=direction
+                directions=direction,
             )
 
     else:
@@ -473,7 +482,7 @@ def main():
         total_comp = study_report(study, hyper_config)
         if total_comp >= n_trials:
             logging.warning(
-                f"The number of trials in the study equals or exceeds that requested. Exiting without error."
+                "The number of trials in the study equals or exceeds that requested. Exiting without error."
             )
             sys.exit()
 

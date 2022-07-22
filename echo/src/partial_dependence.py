@@ -4,7 +4,6 @@ from sklearn.preprocessing import StandardScaler, LabelEncoder
 import xgboost as xgb
 import numpy as np
 from sklearn.inspection import partial_dependence
-from sklearn.preprocessing import LabelEncoder
 import logging
 import warnings
 
@@ -17,16 +16,16 @@ logger = logging.getLogger(__name__)
 def partial_dep(fn, input_cols, output_col, verbose=0):
 
     df = fn[~fn[output_col].isna()].copy()
-    
+
     hot = {}
     for param, dtype in df[input_cols].dtypes.to_dict().items():
         if not any(x in str(dtype) for x in ["int", "float", "bool"]):
             hot[param] = LabelEncoder()
-            
+
     if len(hot):
         for param, le in hot.items():
             df[param] = le.fit_transform(df[param])
-            
+
     objective = "reg:squarederror"
     learning_rate = 0.075
     n_estimators = 1000
@@ -91,7 +90,6 @@ def partial_dep(fn, input_cols, output_col, verbose=0):
     return xgb_model, x_train, hot
 
 
-
 def plot_partial_dependence(f, metrics, save_path, verbose=0):
     input_cols = [x for x in f.columns if x.startswith("params_")]
     if isinstance(metrics, list):
@@ -127,8 +125,8 @@ def plot_partial_dependence(f, metrics, save_path, verbose=0):
             x, y = partial_dependence(model, X, feature, grid_resolution=50)
             if input_cols[k] in hot:
                 y[0] = hot[input_cols[k]].inverse_transform(y[0])
-            #x_rescaled = xscaler.inverse_transform(np.expand_dims(x[0], -1))
-            ax[outer][k % num].plot(y[0], x[0], 'b-')
+            # x_rescaled = xscaler.inverse_transform(np.expand_dims(x[0], -1))
+            ax[outer][k % num].plot(y[0], x[0], "b-")
             if input_cols[k].startswith("params_"):
                 xlabel = "_".join(input_cols[k].split("_")[1:])
             else:
