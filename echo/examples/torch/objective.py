@@ -180,8 +180,8 @@ class Objective(BaseObjective):
 
             if verbose:
                 print_str = f'Epoch: {epoch + 1}'
-                print_str += f'train_acc: {results_dict["train_accuracy"][-1]:.4f}'
-                print_str += f'valid_acc: {results_dict["valid_accuracy"][-1]:.4f}'
+                print_str += f' train_acc: {results_dict["train_accuracy"][-1]:.4f}'
+                print_str += f' valid_acc: {results_dict["valid_accuracy"][-1]:.4f}'
                 print(print_str)
 
             # Anneal learning rate
