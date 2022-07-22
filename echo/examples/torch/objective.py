@@ -1,211 +1,200 @@
-import warnings
-warnings.filterwarnings("ignore")
-
-import copy
-import optuna
+import numpy as np
+import tensorflow as tf
+import torch
+import random
 import logging
-import traceback
+import os
 
-from overrides import overrides
-from holodecml.vae.losses import *
-from holodecml.vae.visual import *
-from holodecml.vae.models import *
-from holodecml.vae.trainers import *
-from holodecml.vae.transforms import *
-from holodecml.vae.optimizers import *
-from holodecml.vae.data_loader import *
-from holodecml.vae.checkpointer import *
+import torch.nn as nn
+import torch.nn.functional as F
+from collections import defaultdict
 from echo.src.base_objective import BaseObjective
 
-from torch import nn
-from torch.optim.lr_scheduler import *
-from torch.utils.data import Dataset, DataLoader
-from typing import List, Dict, Callable, Union, Any, TypeVar, Tuple
+import warnings
+
+warnings.filterwarnings("ignore")
 
 
 logger = logging.getLogger(__name__)
 
 
-def custom_updates(trial, conf):
-    
-    # Get list of hyperparameters from the config
-    hyperparameters = conf["optuna"]["parameters"]
-    
-    # Now update some via custom rules
-    num_dense = trial_suggest_loader(trial, hyperparameters["num_dense"]) 
-    dense1 = trial_suggest_loader(trial, hyperparameters['dense_hidden_dim1'])
-    dense2 = trial_suggest_loader(trial, hyperparameters['dense_hidden_dim2'])
-    dr1 = trial_suggest_loader(trial, hyperparameters['dr1'])
-    dr2 = trial_suggest_loader(trial, hyperparameters['dr2'])
-    
-    # Update the config based on optuna suggestions
-    conf["model"]["dense_hidden_dims"] = [dense1] + [dense2 for k in range(num_dense)]        
-    conf["model"]["dense_dropouts"] = [dr1] + [dr2 for k in range(num_dense)]
-    return conf     
+is_cuda = torch.cuda.is_available()
+device = torch.device(torch.cuda.current_device()) if is_cuda else torch.device("cpu")
+
+
+def seed_everything(seed=1234):
+    random.seed(seed)
+    os.environ["PYTHONHASHSEED"] = str(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    # if torch.cuda.is_available():
+    torch.cuda.manual_seed(seed)
+    # torch.backends.cudnn.benchmark = True
+    torch.backends.cudnn.deterministic = True
+
+
+class Net(nn.Module):
+    def __init__(self, filter1, filter2, dropout, output_size):
+        super(Net, self).__init__()
+        self.conv1 = nn.Conv2d(3, filter1, 3)
+        self.conv2 = nn.Conv2d(filter1, filter2, 3)
+        self.fc1 = nn.Linear(4 * filter2 * 3 * 3, output_size)
+        self.pool = nn.MaxPool2d(2, 2)
+        self.dr1 = nn.Dropout(dropout)
+
+    def forward(self, x):
+        x = self.pool(F.relu(self.conv1(x)))
+        x = self.pool(F.relu(self.conv2(x)))
+        x = torch.flatten(x, 1)
+        x = self.dr1(x)
+        # print(x.shape)
+        x = self.fc1(x)
+        x = F.log_softmax(x, dim=-1)
+        return x
 
 
 class Objective(BaseObjective):
-    
-    def __init__(self, config, metric = "val_loss", device = "cpu"):
-        
-        BaseObjective.__init__(self, config, metric, device)
-        
-        if self.device != "cpu":
-            torch.backends.cudnn.benchmark = True
+    def __init__(self, config, metric="val_accuracy"):
 
+        # Initialize the base class
+        BaseObjective.__init__(self, config, metric)
 
-    def train(self, trial, conf):   
-        
-        ###########################################################
-        #
-        # Implement custom changes to config
-        #
-        ###########################################################
-        
-        conf = custom_updates(trial, conf)
-                
-        ###########################################################
-        #
-        # Load ML pipeline, train the model, and return the result
-        #
-        ###########################################################
-        
-        # Load custom option for the VAE/compressor models
-        model_type = conf["type"]
+    def train(self, trial, conf):
+        filter1 = conf["filter1"]
+        filter2 = conf["filter2"]
+        learning_rate = conf["learning_rate"]
+        batch_size = conf["batch_size"]
+        dropout = conf["dropout"]
+        epochs = conf["epochs"]
+        seed = conf["seed"]
+        num_classes = 10
 
-        # Load image transformations.
-        transform = LoadTransformations(conf["transforms"], device = self.device)
+        stopping_patience = conf["early_stopping_patience"]
+        lr_patience = conf["lr_patience"]
+        verbose = 0
 
-        # Load dataset readers
-        train_gen = LoadReader(
-            reader_type = model_type,
-            split = "train",
-            transform = transform,
-            scaler = None,
-            config = conf["data"]
+        # Fix seed for reproducibility
+        seed_everything(seed)
+
+        # Load the data and split it between train and valid sets
+        (x_train, y_train), (x_valid, y_valid) = tf.keras.datasets.cifar10.load_data()
+
+        # Scale images to the [0, 1] range
+        x_train = x_train.astype("float32") / 255
+        x_valid = x_valid.astype("float32") / 255
+
+        # Resize images for pytorch
+        x_train = x_train.transpose((0, 3, 1, 2))
+        x_valid = x_valid.transpose((0, 3, 1, 2))
+
+        # Wrap torch Dataset and Loader objects around the numpy arrays
+        trainset = torch.utils.data.TensorDataset(
+            torch.from_numpy(x_train).float(), torch.from_numpy(y_train).long()
         )
 
-        valid_gen = LoadReader(
-            reader_type = model_type, 
-            split = "test", 
-            transform = transform, 
-            scaler = train_gen.get_transform(),
-            config = conf["data"],
+        train_loader = torch.utils.data.DataLoader(
+            trainset, batch_size=batch_size, shuffle=True, num_workers=0
         )
 
-        # Load data iterators from pytorch
-        n_workers = conf['iterator']['num_workers']
-
-        #logging.info(f"Loading training data iterator using {n_workers} workers")
-
-        dataloader = DataLoader(
-            train_gen,
-            **conf["iterator"]
+        validset = torch.utils.data.TensorDataset(
+            torch.from_numpy(x_valid).float(), torch.from_numpy(y_valid).long()
         )
 
-        valid_dataloader = DataLoader(
-            valid_gen,
-            **conf["iterator"]
+        valid_loader = torch.utils.data.DataLoader(
+            validset, batch_size=batch_size, shuffle=False, num_workers=0
         )
 
-        # Load the model 
-        model = LoadModel(model_type, conf["model"], self.device)
+        # Load the model
+        model = Net(filter1, filter2, dropout, num_classes).to(device)
 
-        # Load the optimizer
-        optimizer_config = conf["optimizer"]
-        optimizer = LoadOptimizer(
-            optimizer_config["type"], 
-            model.parameters(), 
-            optimizer_config["lr"], 
-            optimizer_config["weight_decay"]
+        optimizer = torch.optim.Adam(
+            model.parameters(),
+            lr=learning_rate,
         )
 
-        # Load the trainer
-        trainer = CustomTrainer(
-            model = model,
-            optimizer = optimizer,
-            train_gen = train_gen,
-            valid_gen = valid_gen,
-            dataloader = dataloader,
-            valid_dataloader = valid_dataloader,
-            device = self.device,
-            **conf["trainer"]
+        # Load loss
+        criterion = torch.nn.NLLLoss()
+
+        # Load schedulers
+        lr_scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(
+            optimizer, patience=lr_patience, verbose=verbose, min_lr=1.0e-13
         )
 
-        # Initialize LR annealing scheduler
-        if "ReduceLROnPlateau" in conf["callbacks"]:
-            schedule_config = conf["callbacks"]["ReduceLROnPlateau"]
-            scheduler = ReduceLROnPlateau(trainer.optimizer, **schedule_config)
-            logging.info(
-                f"Loaded ReduceLROnPlateau learning rate annealer with patience {schedule_config['patience']}"
-            )
-        elif "ExponentialLR" in conf["callbacks"]:
-            schedule_config = conf["callbacks"]["ExponentialLR"]
-            scheduler = ExponentialLR(trainer.optimizer, **schedule_config)
-            logging.info(
-                f"Loaded ExponentialLR learning rate annealer with reduce factor {schedule_config['gamma']}"
-            )
+        results_dict = defaultdict(list)
+        for epoch in range(epochs):  # loop over the dataset multiple times
 
-        # Initialize early stopping
-        checkpoint_config = conf["callbacks"]["EarlyStopping"]
-        early_stopping = EarlyStopping(**checkpoint_config)
+            """Train"""
+            train_loss, train_accuracy = [], []
+            model.train()
+            for i, data in enumerate(train_loader, 0):
+                # get the inputs; data is a list of [inputs, labels]
+                inputs, labels = data
+                inputs = inputs.to(device)
+                labels = labels.to(device)
 
-        # Train the model
-        val_loss, val_mse, val_bce, val_acc = trainer.train(
-            trial, scheduler, early_stopping, self.metric
-        )
-        
-        results = {
-            "val_loss": val_loss, 
-            "val_mse": val_mse, 
-            "val_bce": val_bce, 
-            "val_acc": val_acc
-        }
-        
-        return self.save(trial, results)
+                # zero the parameter gradients
+                optimizer.zero_grad()
 
+                # forward + backward + optimize
+                outputs = model(inputs)
+                loss = criterion(outputs, labels.squeeze(-1))
+                loss.backward()
+                optimizer.step()
 
-class CustomTrainer(BaseEncoderTrainer):
+                # print statistics
+                train_loss.append(loss.item())
+                train_accuracy.append(
+                    (torch.argmax(outputs, -1) == labels.squeeze(-1))
+                    .float()
+                    .mean()
+                    .item()
+                )
 
-    def train(self,
-              trial,
-              scheduler,
-              early_stopping, 
-              metric = "val_loss"):
+            """ Validate """
+            val_loss, val_accuracy = [], []
+            model.eval()
+            with torch.no_grad():
+                for i, data in enumerate(valid_loader, 0):
+                    # get the inputs; data is a list of [inputs, labels]
+                    inputs, labels = data
+                    inputs = inputs.to(device)
+                    labels = labels.to(device)
 
-        flag = isinstance(
-            scheduler, torch.optim.lr_scheduler.ReduceLROnPlateau)
+                    # forward
+                    outputs = model(inputs)
+                    loss = criterion(outputs, labels.squeeze(-1))
 
-        for epoch in range(self.start_epoch, self.epochs):
-            
-            try:
-                train_loss, train_mse, train_bce, train_accuracy = self.train_one_epoch(epoch)
-                test_loss, test_mse, test_bce, test_accuracy = self.test(epoch)
-            
-                if "val_loss" in metric:
-                    metric_val = test_loss
-                elif "val_mse_loss" in metric:
-                    metric_val = test_mse
-                elif "val_bce_loss" in metric:
-                    metric_val = test_bce
-                elif "val_acc" in metric:
-                    metric_val = -test_accuracy
-                else:
-                    supported = "val_loss, val_mse_loss, val_bce_loss, val_acc"
-                    raise ValueError(f"The metric {metric} is not supported. Choose from {supported}")
+                    # print statistics
+                    val_loss.append(loss.item())
+                    val_accuracy.append(
+                        (torch.argmax(outputs, -1) == labels.squeeze(-1))
+                        .float()
+                        .mean()
+                        .item()
+                    )
 
-                trial.report(-metric_val, step=epoch+1)
-                scheduler.step(metric_val if flag else epoch)
-                early_stopping(epoch, metric_val, self.model, self.optimizer)
-                
-            except Exception as E: # CUDA memory overflow
-                print(traceback.print_exc())
-                raise optuna.TrialPruned()
-            
-            if trial.should_prune():
-                raise optuna.TrialPruned()
-                
-            if early_stopping.early_stop:
+            results_dict["train_loss"].append(np.mean(train_loss))
+            results_dict["train_accuracy"].append(np.mean(train_accuracy))
+            results_dict["valid_loss"].append(np.mean(val_loss))
+            results_dict["valid_accuracy"].append(np.mean(val_accuracy))
+
+            if verbose:
+                print_str = f"Epoch: {epoch + 1}"
+                print_str += f' train_acc: {results_dict["train_accuracy"][-1]:.4f}'
+                print_str += f' valid_acc: {results_dict["valid_accuracy"][-1]:.4f}'
+                print(print_str)
+
+            # Anneal learning rate
+            lr_scheduler.step(1 - results_dict["valid_accuracy"][-1])
+
+            # Early stopping
+            best_epoch = [
+                i
+                for i, j in enumerate(results_dict["valid_accuracy"])
+                if j == max(results_dict["valid_accuracy"])
+            ][0]
+            offset = epoch - best_epoch
+            if offset >= stopping_patience:
                 break
-                
-        return test_loss, test_mse, test_bce, test_accuracy
+
+        return {key: value[best_epoch] for key, value in results_dict.items()}

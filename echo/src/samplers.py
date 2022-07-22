@@ -10,8 +10,8 @@ from optuna.samplers._cmaes import CmaEsSampler
 from optuna.samplers._base import BaseSampler
 from optuna.samplers.__init__ import __all__ as supported_samplers
 import logging
-import sys
 import warnings
+
 warnings.filterwarnings("ignore")
 
 
@@ -21,14 +21,15 @@ logger = logging.getLogger(__name__)
 def samplers(sampler):
     _type = sampler.pop("type")
 
-    assert _type in supported_samplers, f"Sampler {_type} is not valid. Select from {supported_samplers}"
+    assert (
+        _type in supported_samplers
+    ), f"Sampler {_type} is not valid. Select from {supported_samplers}"
 
     if _type == "TPESampler":
         return TPESampler(**sampler)
     if _type == "GridSampler":
         if "search_space" not in sampler:
-            raise OSError(
-                "You must provide search_space options with the GridSampler.")
+            raise OSError("You must provide search_space options with the GridSampler.")
         else:
             return GridSampler(**sampler)
     if _type == "RandomSampler":

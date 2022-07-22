@@ -1,22 +1,26 @@
 # **E**arth **C**omputing **H**yperparameter **O**ptimization (ECHO): A distributed hyperparameter optimization package build with Optuna
 
 ### Install
+```bash
 pip install git+https://github.com/NCAR/echo-opt.git
-
+```
 Several commands will be placed onto the PATH:
 echo-opt, echo-report, echo-run
 
 ### Usage
 Launch a new optimization study:
-```python
+
+```bash
 echo-opt hyperparameters.yml model_config.yml
 ```
 Produce a report about the results saved in the study:
-```python
-echo-report hyperparameters.yml [-p plot_config.yml]
+
+```bash
+echo-report hyperparameters.yml [-p plot_config.yml] [-m model_config.yml]
 ```
 Run one trial:
-```python
+
+```bash
 echo-run hyperparameters.yml model_config.yml
 ```
 
@@ -35,30 +39,30 @@ There are three files that must be supplied to use the optimize script:
 The custom **Objective** class (objective.py) must inherit a **BaseObjective** class (which lives in base_objective.py), and must contain a method named **train** that returns the value of the optimization metric (in a dictionary, see below). There are example objective scripts for both torch and Keras in the examples directory. Your custom Objective class will inherit all of the methods and attributes from the BaseObjective. The Objective's train does not depend on the machine learning library used! For example, a simple template has the following structure:
 
 ```python
-from aimlutils.echo.src.base_objective import *
-from aimlutils.echo.src.pruning import KerasPruningCallback
+from echo.src.base_objective import *
+from echo.src.pruners import KerasPruningCallback
 
 class Objective(BaseObjective):
 
-    def __init__(self, config, metric = "val_loss", device = "cpu"):
+    def __init__(self, config, metric = "val_loss"):
 
         # Initialize the base class
-        BaseObjective.__init__(self, config, metric, device)
+        BaseObjective.__init__(self, config, metric)
 
     def train(self, trial, conf):
 
         # Make any custom edits to the model conf before using it to train a model.
         conf = custom_updates(trial, conf)
 
-        ... (load data sets, build model, etc)
+        # ... (load data sets, build model, etc)
 
         callbacks = [KerasPruningCallback(trial, self.metric, interval = 1)]
-        result = Model.fit(..., callbacks = callbacks)
+        result = Model.fit(..., callbacks=callbacks)
 
         results_dictionary = {
             "val_loss": result["val_loss"],
             "loss": result["loss"],
-            ...
+            #...
             "val_accuracy": result["val_accuracy"]
         }
         return results_dictionary
@@ -76,6 +80,9 @@ Finally, if using Keras, you need to include the (customized) KerasPruningCallba
 There are several fields: log, slurm, pbs, optuna, and variable subfields within each field. The log field allows us to save a file for printing messages and warnings that are placed in areas throughout the package. The slurm/pbs fields allows the user to specify how many GPU nodes should be used, and supports any slurm setting. The optuna field allows the user to configure the optimization procedure, including specifying which parameters will be used, as well as the performance metric. For example, consider the configuration settings:
 
 ```yaml
+log: True
+save_path: "/glade/work/schreck/repos/echo-opt/echo/examples/torch/fmc"
+
 pbs:
   jobs: 10
   kernel: "ncar_pylib /glade/work/schreck/py37"
@@ -101,15 +108,14 @@ slurm:
     o: "echo_trial.out"
     e: "echo_trial.err"
 optuna:
-  study_name: "holodec_optimization"
-  storage: "sqlite:///path/to/data/storage.db
-  reload: 0
+  storage: "mlp.db"
+  study_name: "mlp"
+  storage_type: "sqlite"
   objective: "examples/torch/objective.py"
   metric: "val_loss"
   direction: "minimize"
   n_trials: 500
   gpu: True
-  save_path: 'test'
   sampler:
     type: "TPESampler"
     n_startup_trials: 30 
@@ -137,23 +143,26 @@ optuna:
       settings:
         name: "activation"
         choices: ["relu", "linear", "leaky", "elu", "prelu"]
-log [optional]:
-  save_path: "path/to/data/log.txt"
 ```
+The save_path field sets the location where all generated data will be saved.
+* save_path: Directory path where data will be saved. 
 
-The subfields within "pbs" and slurm" should mostly be familiar to you. In this example there would be 10 jobs submitted to pbs queue and 15 jobs to the slurm queue. The kernel field is optional and can be any call(s) to activate a conda/python/ncar_pylib/etc environment. Additional snippets that you might need in your launch script can be added to the list in the "bash" field. For example, as in the example above, loading modules before training a model is required. Note that the bash options will be run in order, and before the kernel field. Remove or leave the kernel field blank if you do not need it.
+The log field allows you to save the logging details to file to save_path; they will always be printed to stdout. If this field is removed, logging details will only be printed to stdout.
+* log: boolean to save log.txt in save_path.
+
+The subfields within "pbs" and slurm" should mostly be familiar to you. In this example there would be 10 jobs submitted to pbs queue and 15 jobs to the slurm queue. Most HPCs just use one or the other, so make sure to only speficy what your system supports. The kernel field is optional and can be any call(s) to activate a conda/python/ncar_pylib/etc environment. Additional snippets that you might need in your launch script can be added to the list in the "bash" field. For example, as in the example above, loading modules before training a model is required. Note that the bash options will be run in order, and before the kernel field. Remove or leave the kernel field blank if you do not need it.
 
 The subfields within the "optuna" field have the following functionality:
-
-* study_name: The name of the study.
 * storage: sqlite or mysql destination.
-* reload: Whether to continue using a previous study (True) or to initialize a new study (False). If your initial number of workers do not reach the number of trials and you wish to resubmit, set to True.
-* objective: The path to the user-supplied objective class (it must be named objective.py)
+* study_name: The name of the study.
+* storage_type: Choose "sqlite" or "maria" if a MariaDB is setup. 
+ * If "sqlite", the storage field will automatically be appended to the save_path field (e.g. sql:///{save_path}/mlp.db)
+ * If "maria", specify the full path including username:password in the storage field (for example, mysql://user:pw@someserver.ucar.edu/optuna).
+* objective: The path to the user-supplied objective class
 * metric: The metric to be used to determine the model performance. 
 * direction: Indicates which direction the metric must go to represent improvement (pick from maximimize or minimize)
 * n_trials: The number of trials in the study.
-* gpu: Use the gpu or cpu.
-* save_path: Directory path where data will be saved. 
+* gpu: Set to true to obtain the GPUs and their IDs
 * sampler
   + type: Choose how optuna will do parameter estimation. The default choice both here and in optuna is the [Tree-structured Parzen Estimator Approach](https://towardsdatascience.com/a-conceptual-explanation-of-bayesian-model-based-hyperparameter-optimization-for-machine-learning-b8172278050f), [e.g. TPESampler](https://papers.nips.cc/paper/4443-algorithms-for-hyper-parameter-optimization.pdf). See the optuna documentation for the different options. For some samplers (e.g. GridSearch) additional fields may be included (e.g. search_space). 
 * parameters
@@ -164,7 +173,7 @@ Lastly, the "log" field allows you to save the logging details to file; they wil
 
 ### Model configuration
 
-The model configuration file can be what you had been using up to this point to train your model, in other words no changes are necessary. This package will take the suggested hyperparameters from an optuna trial and make changes to the model configuration on the fly. This can either be done automatically with this package, or the user may supply an additional method for making custom changes. For example, consider the (truncated) configuration for training a model to predict hologram properties with a holodec dataset:
+The model configuration file can be what you had been using up to this point to train your model, in other words no changes are necessary. This package will take the suggested hyperparameters from an optuna trial and make changes to the model configuration on the fly. This can either be done automatically with this package, or the user may supply an additional method for making custom changes. For example, consider the (truncated) configuration for training a model to predict properties with a dataset containing images:
 
 ```yaml
 model:
@@ -219,7 +228,7 @@ def custom_updates(trial, conf):
 
 The method should be called first thing in the custom Objective.train method (see the example Objective above). You may have noticed that the configuration (named conf) contains both hyperparameter and model fields. This package will copy the hyperparameter optuna field to the model configuration for convenience, so that we can reduce the total number of class and method dependencies (which helps me keep the code generalized). This occurs in the run.py script.
 
-### Custom plot settings for report.py
+### Custom plot settings for echo-report
 
 The script report.py will load the current study, identify the best trial in the study, and will compute the relative importantance of each parameter using both fanova and MDI (see [here](https://optuna.readthedocs.io/en/v1.3.0/reference/importance.html) for details). 
 

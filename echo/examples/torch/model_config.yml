@@ -1,0 +1,12 @@
+path_save: "echo/examples/torch/data"
+seed: 1000
+
+learning_rate: 0.001
+batch_size: 32
+filter1: 16
+filter2: 32
+dropout: 0.2
+epochs: 200
+
+lr_patience: 3
+early_stopping_patience: 10
