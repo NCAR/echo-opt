@@ -1,5 +1,13 @@
 numpy
 scipy
 matplotlib
+pandas
 optuna
 setuptools
+pyyaml
+scikit-learn
+tensorflow
+pytorch
+xgboost
+torchvision
+pyarrow
