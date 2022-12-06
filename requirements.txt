@@ -7,7 +7,7 @@ setuptools
 pyyaml
 scikit-learn
 tensorflow
-pytorch
+torch
 xgboost
 torchvision
 pyarrow
