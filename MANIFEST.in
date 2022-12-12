@@ -1,0 +1,4 @@
+include README.md
+include echo/VERSION
+recursive-include echo/*.py
+recursive-include echo/src/*.py
