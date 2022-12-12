@@ -1,0 +1,13 @@
+numpy
+scipy
+matplotlib
+pandas
+optuna
+setuptools
+pyyaml
+scikit-learn
+tensorflow
+torch
+xgboost
+torchvision
+pyarrow
