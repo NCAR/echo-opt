@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
   name="echo-opt",
-  version="0.1",
+  version="1.0",
   description="Earth Computer Hyperparameter Optimization",
   author="John Schreck, David John Gagne, Charlie Becker, Gabrielle Gantos",
   license="MIT",
