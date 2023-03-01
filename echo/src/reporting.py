@@ -175,6 +175,7 @@ def study_report(study, hyper_config):
     logger.info("Summary statistics for the current study:")
     logger.info(f"\tTotal number of trials in the study: {len(study.get_trials())}")
     for key, val in state_histo.items():
+        key = str(key) if "." not in str(key) else str(key).split(".")[-1]
         logger.info(f"\tTrials with state {key}: {val}")
     logger.info(f"\tRequested number of trials: {n_trials}")
     total_completed_trials = successful_trials(study)
