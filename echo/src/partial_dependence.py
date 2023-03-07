@@ -122,11 +122,22 @@ def plot_partial_dependence(f, metrics, save_path, verbose=0):
         outer = 0
         features = range(len(input_cols))
         for k, feature in enumerate(features):
-            x, y = partial_dependence(model, X, feature, grid_resolution=50)
+            pd_result = partial_dependence(model, X, feature, grid_resolution=50)
+            x = pd_result["average"]
+            y = pd_result["values"]
+            
             if input_cols[k] in hot:
-                y[0] = hot[input_cols[k]].inverse_transform(y[0])
+                
+                # if the dataset is too small, we cant yet make PD figures
+                try:
+                    y[0] = hot[input_cols[k]].inverse_transform(y[0])
+                except ValueError:
+                    continue
+                        
             # x_rescaled = xscaler.inverse_transform(np.expand_dims(x[0], -1))
             ax[outer][k % num].plot(y[0], x[0], "b-")
+            if any([type(x) == str for x in y[0]]):
+                ax[outer][k % num].set_xticklabels(y[0], rotation=90)
             if input_cols[k].startswith("params_"):
                 xlabel = "_".join(input_cols[k].split("_")[1:])
             else:
