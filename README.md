@@ -1,11 +1,20 @@
 # **E**arth **C**omputing **H**yperparameter **O**ptimization (ECHO): A distributed hyperparameter optimization package build with Optuna
 
 ### Install
+
+To install a stable version of ECHO from PyPI, use the following command:
+```bash
+pip install echo-opt
+```
+
+Install the latest version of ECHO directly from github with the following command:
 ```bash
 pip install git+https://github.com/NCAR/echo-opt.git
 ```
+
+
 Several commands will be placed onto the PATH:
-echo-opt, echo-report, echo-run
+`echo-opt, echo-report, echo-run`
 
 ### Usage
 Launch a new optimization study:
