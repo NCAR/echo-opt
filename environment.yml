@@ -22,5 +22,5 @@ dependencies:
   - torchvision
   - tensorflow
   - xgboost
-  pip:
+  - pip:
     - .
