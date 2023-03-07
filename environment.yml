@@ -8,7 +8,7 @@ dependencies:
   - pytest
   - setuptools
   - optuna
-  - numpy<1.24.0
+  - numpy<1.21.0
   - scipy
   - matplotlib
   - scikit-learn
