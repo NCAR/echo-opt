@@ -7,11 +7,14 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       max-parallel: 5
-
+    defaults:
+      run:
+        shell: bash -l {0}
     steps:
     - uses: actions/checkout@v2
     - uses: conda-incubator/setup-miniconda@v2
       with:
+        miniconda-version: "latest"
         mamba-version: "*"
         channel-priority: true
         environment-file: environment.yml
@@ -36,4 +39,4 @@ jobs:
       shell: bash -l {0}
       run: |
         mamba install pytest
-        pytest echo/tests/tests.py
+        pytest
