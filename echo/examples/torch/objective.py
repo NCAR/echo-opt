@@ -1,9 +1,9 @@
 import numpy as np
-import torch
 import random
 import logging
 import os
 try:
+    import torch
     import torch.nn as nn
     import torch.nn.functional as F
     import torchvision
