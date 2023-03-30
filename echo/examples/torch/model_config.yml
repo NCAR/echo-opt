@@ -1,4 +1,4 @@
-path_save: "echo/examples/torch/data"
+path_save: "./data"
 seed: 1000
 
 learning_rate: 0.001

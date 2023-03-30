@@ -1,17 +1,17 @@
 log: True
-save_path: "echo/examples/torch/data"
+save_path: "./data"
 
 pbs:
   jobs: 1
   trials_per_job: 1
-  bash: ["source ~/.bashrc", "ncar_pylib /glade/work/$USER/py37"]
+  bash: ["source ~/.bashrc", "conda activate echo"]
   batch:
     l: ["select=1:ncpus=8:ngpus=1:mem=64GB", "walltime=12:00:00"]
     A: "NAML0001"
     q: "casper"
     N: "torch_example"
-    o: "echo/examples/torch/out"
-    e: "echo/examples/torch/err"
+    o: "./out"
+    e: "./err"
 
 optuna:
   study_name: "torch-cifar"

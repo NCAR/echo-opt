@@ -1,12 +1,16 @@
 import numpy as np
-import tensorflow as tf
-import torch
 import random
 import logging
 import os
-
-import torch.nn as nn
-import torch.nn.functional as F
+try:
+    import torch
+    import torch.nn as nn
+    import torch.nn.functional as F
+    import torchvision
+    import torchvision.transforms as transforms
+except ImportError as err:
+    print("torch and torchvision are not installed. Please install both for this example to work.")
+    raise err
 from collections import defaultdict
 from echo.src.base_objective import BaseObjective
 
@@ -77,28 +81,32 @@ class Objective(BaseObjective):
         seed_everything(seed)
 
         # Load the data and split it between train and valid sets
-        (x_train, y_train), (x_valid, y_valid) = tf.keras.datasets.cifar10.load_data()
+        # (x_train, y_train), (x_valid, y_valid) = tf.keras.datasets.cifar10.load_data()
 
         # Scale images to the [0, 1] range
-        x_train = x_train.astype("float32") / 255
-        x_valid = x_valid.astype("float32") / 255
+        # x_train = x_train.astype("float32") / 255
+        # x_valid = x_valid.astype("float32") / 255
 
         # Resize images for pytorch
-        x_train = x_train.transpose((0, 3, 1, 2))
-        x_valid = x_valid.transpose((0, 3, 1, 2))
+        # x_train = x_train.transpose((0, 3, 1, 2))
+        # x_valid = x_valid.transpose((0, 3, 1, 2))
 
         # Wrap torch Dataset and Loader objects around the numpy arrays
-        trainset = torch.utils.data.TensorDataset(
-            torch.from_numpy(x_train).float(), torch.from_numpy(y_train).long()
-        )
+        #trainset = torch.utils.data.TensorDataset(
+        #    torch.from_numpy(x_train).float(), torch.from_numpy(y_train).long()
+        #)
+        transform = transforms.Compose(
+            [transforms.ToTensor(),
+             transforms.Normalize((0.5, 0.5, 0.5), (0.5, 0.5, 0.5))])
+        trainset = torchvision.datasets.CIFAR10(root="./data", train=True, download=True, transform=transform)
 
         train_loader = torch.utils.data.DataLoader(
             trainset, batch_size=batch_size, shuffle=True, num_workers=0
         )
-
-        validset = torch.utils.data.TensorDataset(
-            torch.from_numpy(x_valid).float(), torch.from_numpy(y_valid).long()
-        )
+        validset = torchvision.datasets.CIFAR10(root="./data", train=False, download=True, transform=transform)
+        #validset = torch.utils.data.TensorDataset(
+        #    torch.from_numpy(x_valid).float(), torch.from_numpy(y_valid).long()
+        #)
 
         valid_loader = torch.utils.data.DataLoader(
             validset, batch_size=batch_size, shuffle=False, num_workers=0

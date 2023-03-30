@@ -6,8 +6,5 @@ optuna
 setuptools
 pyyaml
 scikit-learn
-tensorflow
-torch
 xgboost
-torchvision
 pyarrow

@@ -2,12 +2,16 @@ import os
 import random
 import logging
 import numpy as np
-import tensorflow as tf
-from tensorflow.keras import layers
+try:
+    import tensorflow as tf
+    from tensorflow.keras import layers
+    from tensorflow.python.keras.callbacks import ReduceLROnPlateau, EarlyStopping
+except ImportError as err:
+    print("This example script requires tensorflow to be installed. Please install tensorflow before proceeding.")
+    raise err
 
 from echo.src.base_objective import BaseObjective
 from optuna.integration import TFKerasPruningCallback
-from tensorflow.python.keras.callbacks import ReduceLROnPlateau, EarlyStopping
 import optuna
 
 import warnings

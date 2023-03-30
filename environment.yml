@@ -18,9 +18,6 @@ dependencies:
   - distributed
   - pip
   - pyarrow
-  - pytorch
-  - torchvision
-  - tensorflow
   - xgboost
   - pip:
     - .

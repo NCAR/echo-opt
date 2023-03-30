@@ -1,5 +1,4 @@
 from optuna.pruners.__init__ import __all__ as supported_pruners
-from tensorflow.python.keras.callbacks import Callback
 from typing import Dict
 import logging
 import optuna
@@ -36,12 +35,24 @@ def pruners(pruner):
         return optuna.pruners.ThresholdPruner(**pruner)
 
 
-class KerasPruningCallback(Callback):
+class KerasPruningCallback(object):
     def __init__(self, trial, monitor, interval=1):
-        super(KerasPruningCallback, self).__init__()
         self.trial = trial
         self.monitor = monitor
         self.interval = interval
+        self.validation_data = None
+        self.model = None
+        # Whether this Callback should only run on the chief worker in a
+        # Multi-Worker setting.
+        self._chief_worker_only = None
+        self._supports_tf_logs = False
+        self.params = None
+
+    def set_params(self, params):
+        self.params = params
+
+    def set_model(self, model):
+        self.model = model
 
     def on_epoch_end(self, epoch, logs=None):
         # type: (int, Dict[str, float]) -> None
