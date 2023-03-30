@@ -1,23 +1,23 @@
 log: True
-save_path: "echo/examples/keras/data"
+save_path: "./data"
 
 pbs:
   jobs: 1
   trials_per_job: 1
-  bash: ["source ~/.bashrc", "ncar_pylib /glade/work/$USER/py37"]
+  bash: ["source ~/.bashrc", "conda activate echo"]
   batch:
     l: ["select=1:ncpus=8:ngpus=1:mem=64GB", "walltime=12:00:00"]
     A: "NAML0001"
     q: "casper"
     N: "keras_example"
-    o: "echo/examples/keras/out"
-    e: "echo/examples/keras/err"
+    o: "./out"
+    e: "./err"
 
 optuna:
   study_name: "keras-cifar"
   storage: "cifar.db"
   storage_type: "sqlite"
-  objective: "echo/examples/keras/objective.py"
+  objective: "./objective.py"
   direction: "maximize"
   metric: "val_accuracy"
   n_trials: 500
