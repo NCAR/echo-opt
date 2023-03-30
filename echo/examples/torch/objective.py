@@ -3,12 +3,14 @@ import torch
 import random
 import logging
 import os
-
-import torch.nn as nn
-import torch.nn.functional as F
-import torchvision
-import torchvision.transforms as transforms
-
+try:
+    import torch.nn as nn
+    import torch.nn.functional as F
+    import torchvision
+    import torchvision.transforms as transforms
+except ImportError as err:
+    print("torch and torchvision are not installed. Please install both for this example to work.")
+    raise err
 from collections import defaultdict
 from echo.src.base_objective import BaseObjective
 
