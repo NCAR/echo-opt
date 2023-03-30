@@ -17,7 +17,7 @@ optuna:
   study_name: "keras-cifar"
   storage: "cifar.db"
   storage_type: "sqlite"
-  objective: "./objective.py"
+  objective: "echo/examples/keras/objective.py"
   direction: "maximize"
   metric: "val_accuracy"
   n_trials: 500

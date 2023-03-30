@@ -17,7 +17,7 @@ optuna:
   study_name: "torch-cifar"
   storage: "cifar.db"
   storage_type: "sqlite"
-  objective: "./objective.py"
+  objective: "echo/examples/torch/objective.py"
   direction: "maximize"
   metric: "valid_accuracy"
   n_trials: 500
