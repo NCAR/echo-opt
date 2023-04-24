@@ -345,12 +345,12 @@ def main():
     if complete_trials > 1:
         try:
             if single_objective:
-                logging.info("Computing fAVNOVA importances, this make take awhile")
+                logging.info("Computing fAVNOVA importances, this may take awhile")
                 f_importance = optuna.importance.FanovaImportanceEvaluator(
                     n_trees=n_trees, max_depth=max_depth
                 ).evaluate(study=study)
                 favnova = dict(f_importance)
-                logging.info("Computing MDI importances, this make take awhile")
+                logging.info("Computing MDI importances, this may take awhile")
                 mdi_importance = (
                     optuna.importance.MeanDecreaseImpurityImportanceEvaluator(
                         n_trees=n_trees, max_depth=max_depth
@@ -364,7 +364,7 @@ def main():
                     logging.info(f"\t\t{key}\t{val:.6f}\t{mdi_val:6f}")
             else:
                 logging.info(
-                    "Computing fAVNOVA and MDI importances, this make take awhile"
+                    "Computing fAVNOVA and MDI importances, this may take awhile"
                 )
                 for k, metric in enumerate(metrics):
                     f_importance = optuna.importance.FanovaImportanceEvaluator(
