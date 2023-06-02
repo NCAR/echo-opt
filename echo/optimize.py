@@ -242,7 +242,13 @@ def prepare_pbs_launch_script(hyper_config: str, model_config: str) -> List[str]
             for opt in val:
                 pbs_options.append(f"#PBS -{arg} {opt}")
         elif len(arg) == 1:
-            pbs_options.append(f"#PBS -{arg} {val}")
+            if arg in ["o", "e"]:
+                if hyper_config["save_path"] in val:
+                    pbs_options.append(f"#PBS -{arg} {val}")
+                elif hyper_config["save_path"] not in val:
+                    pbs_options.append(f"#PBS -{arg} {hyper_config['save_path']+val}")
+            else:
+                pbs_options.append(f"#PBS -{arg} {val}")
         elif arg in ["o", "e"]:
             if val != "/dev/null":
                 _val = os.path.append(hyper_config["save_path"], val)
