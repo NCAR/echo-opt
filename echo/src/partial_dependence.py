@@ -48,15 +48,15 @@ def partial_dep(fn, input_cols, output_col, verbose=0, model_type='rf'):
     )
 
     #     xscaler = #StandardScaler()
-    yscaler = StandardScaler()
+    #     yscaler = StandardScaler()
 
     #     x_train = xscaler.fit_transform(x_train)
     #     x_valid = xscaler.transform(x_valid)
     #     x_test = xscaler.transform(x_test)
 
-    y_train = yscaler.fit_transform(np.expand_dims(y_train, -1))
-    y_valid = yscaler.transform(np.expand_dims(y_valid, -1))
-    y_test = yscaler.transform(np.expand_dims(y_test, -1))
+    #     y_train = yscaler.fit_transform(np.expand_dims(y_train, -1))
+    #     y_valid = yscaler.transform(np.expand_dims(y_valid, -1))
+    #     y_test = yscaler.transform(np.expand_dims(y_test, -1))
 
     if model_type=='xgb':
         xgb_model = xgb.XGBRegressor(
