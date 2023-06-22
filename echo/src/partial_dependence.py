@@ -2,6 +2,7 @@ import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, LabelEncoder
 import xgboost as xgb
+from sklearn.ensemble import RandomForestRegressor
 import numpy as np
 from sklearn.inspection import partial_dependence
 import logging
@@ -13,7 +14,7 @@ warnings.filterwarnings("ignore")
 logger = logging.getLogger(__name__)
 
 
-def partial_dep(fn, input_cols, output_col, verbose=0):
+def partial_dep(fn, input_cols, output_col, verbose=0, model_type='rf'):
 
     df = fn[~fn[output_col].isna()].copy()
 
@@ -27,6 +28,7 @@ def partial_dep(fn, input_cols, output_col, verbose=0):
             df[param] = le.fit_transform(df[param])
 
     objective = "reg:squarederror"
+    criterion = "squared_error"
     learning_rate = 0.075
     n_estimators = 1000
     max_depth = 10
@@ -56,41 +58,62 @@ def partial_dep(fn, input_cols, output_col, verbose=0):
     y_valid = yscaler.transform(np.expand_dims(y_valid, -1))
     y_test = yscaler.transform(np.expand_dims(y_test, -1))
 
-    xgb_model = xgb.XGBRegressor(
-        objective=objective,
-        random_state=seed,
-        # gpu_id = device,
-        learning_rate=learning_rate,
-        n_estimators=n_estimators,
-        max_depth=max_depth,
-        colsample_bytree=colsample_bytree,
-        gamma=gamma,
-        subsample=subsample,
-        n_jobs=n_jobs,
-    )
+    if model_type=='xgb':
+        xgb_model = xgb.XGBRegressor(
+            objective=objective,
+            random_state=seed,
+            # gpu_id = device,
+            learning_rate=learning_rate,
+            n_estimators=n_estimators,
+            max_depth=max_depth,
+            colsample_bytree=colsample_bytree,
+            gamma=gamma,
+            subsample=subsample,
+            n_jobs=n_jobs,
+        )
 
-    xgb_model.fit(
-        x_train,
-        y_train,
-        eval_set=[(x_valid, y_valid)],
-        early_stopping_rounds=10,
-        verbose=verbose,
-    )
+        xgb_model.fit(
+            x_train,
+            y_train,
+            eval_set=[(x_valid, y_valid)],
+            early_stopping_rounds=10,
+            verbose=verbose,
+        )
+
+        model = xgb_model
+
+    if model_type=='rf':
+        rf_model = RandomForestRegressor(
+            criterion=criterion,
+            random_state=seed,
+            n_estimators=n_estimators,
+            max_depth=max_depth,
+            verbose=verbose,
+            max_samples=subsample,
+            n_jobs=n_jobs,
+        )
+
+        rf_model.fit(
+            x_train,
+            y_train,
+        )
+
+        model = rf_model
 
     train_sh = y_train.shape[0]
     valid_sh = y_valid.shape[0]
     test_sh = y_test.shape[0]
 
     info = f"\tTrain ({train_sh}) / valid ({valid_sh}) / test ({test_sh})\tR2 scores: "
-    info += f"\t{xgb_model.score(x_train, y_train):.2f} / "
-    info += f"{xgb_model.score(x_valid, y_valid):.2f} / "
-    info += f"{xgb_model.score(x_valid, y_valid):.2f} "
+    info += f"\t{model.score(x_train, y_train):.2f} / "
+    info += f"{model.score(x_valid, y_valid):.2f} / "
+    info += f"{model.score(x_valid, y_valid):.2f} "
     logger.info(info)
 
-    return xgb_model, x_train, hot
+    return model, x_train, hot
 
 
-def plot_partial_dependence(f, metrics, save_path, verbose=0):
+def plot_partial_dependence(f, metrics, save_path, verbose=0, model_type='rf'):
     input_cols = [x for x in f.columns if x.startswith("params_")]
     if isinstance(metrics, list):
         output_cols = [f"values_{k}" for k in range(len(metrics))]
@@ -109,14 +132,15 @@ def plot_partial_dependence(f, metrics, save_path, verbose=0):
 
     for p, metric in enumerate(metrics):
 
-        logger.info(f"Fitting XGB model to predict {metric} partial dependence")
-        model, X, hot = partial_dep(f, input_cols, output_cols[p], verbose=verbose)
+        logger.info(f"Fitting {model_type} model to predict {metric} partial dependence")
+        model, X, hot = partial_dep(f, input_cols, output_cols[p],
+                verbose=verbose, model_type=model_type)
 
         fig, ax = plt.subplots(
             cols, num, figsize=(10, 10 / 1.61), sharex=False, sharey=False, dpi=300
         )
 
-        save_name = f"{save_path}/partial_dependence_{metric}.pdf"
+        save_name = f"{save_path}/partial_dependence_{metric}.png"
         logger.info(f"\tPlotting and saving partial dependences to {save_name}")
 
         outer = 0
