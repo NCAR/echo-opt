@@ -75,7 +75,16 @@ def args():
         default=1,
         help="For multi-objective studies, return the k best trials on the Pareto front. Default is 1.",
     )
-
+    
+    parser.add_argument(
+        "-g",
+        "--grab_k",
+        dest="grabk",
+        type=int,
+        default=0,
+        help="For multi-objective studies, return the g trial params on the Pareto front. Default is 0.",
+    )
+    
     return vars(parser.parse_args())
 
 
@@ -175,6 +184,7 @@ def main():
 
     """ Options for multi-objective studies"""
     top_k = args_dict.pop("topk")
+    grab_k = args_dict.pop("grabk")
 
     """ Check if hyperparameter config file exists """
     assert os.path.isfile(
@@ -269,9 +279,9 @@ def main():
     """ Save best parameters to new model configuration """
     # How to handle custom updates?
     if model_config:
-        best_fn = os.path.join(save_path, "best.yml")
+        best_fn = os.path.join(save_path, f"best_{str(grab_k)}.yml")
         logging.info(f"Saving the best model configuration to {best_fn}")
-        best_params = study.best_params if single_objective else best_trials[0].params
+        best_params = study.best_params if single_objective else best_trials[grab_k].params
         hyperparameters = hyper_config["optuna"]["parameters"]
         updated = []
         for named_parameter, _ in hyperparameters.items():
