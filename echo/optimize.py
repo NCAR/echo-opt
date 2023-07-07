@@ -277,9 +277,9 @@ def prepare_pbs_launch_script(hyper_config: str, model_config: str) -> List[str]
         logging.warning(
             "Check the log and stdout/err files if simulations are dying to see the errors"
         )
-        for copy in range(hyper_config["pbs"]["trials_per_job"]):
+        for iter_, copy in enumerate(range(hyper_config["pbs"]["trials_per_job"])):
             pbs_options.append(
-                f"{aiml_path} {sys.argv[1]} {sys.argv[2]} -n {pbs_jobid} &"
+                f"CUDA_VISIBLE_DEVICES={iter_}, {aiml_path} {sys.argv[1]} {sys.argv[2]} -n {pbs_jobid} &"
             )
             # allow some time between calling instances of run
             pbs_options.append("sleep 0.5")
