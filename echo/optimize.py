@@ -196,6 +196,76 @@ def fix_broken_study(
     return study_fixed, removed
 
 
+
+def generate_batch_commands(
+    hyper_config, batch_type, aiml_path, jobid, batch_commands = []
+) -> List[str]:
+
+    # Check if "gpus_per_node" is specified in hyper_config[batch_type]
+    if "gpus_per_node" in hyper_config[batch_type]:
+        # Get the list of GPU devices, or convert a single integer to a list
+        gpus_per_node = list(range(hyper_config[batch_type]["gpus_per_node"]))
+        
+        # Check if "trials_per_job" is specified in hyper_config[batch_type]
+        if (
+            "trials_per_job" in hyper_config[batch_type]
+            and hyper_config[batch_type]["trials_per_job"] > 1
+        ):
+            # Warn about the experimental nature of trials_per_job
+            logging.warning(
+                "The trials_per_job is experimental; be advised that some runs may fail."
+            )
+            logging.warning(
+                "Check the log and stdout/err files if simulations are dying to see the errors."
+            )
+
+            # Loop over the specified number of trials
+            for copy in range(hyper_config[batch_type]["trials_per_job"]):
+                # Loop over each GPU device
+                for device in gpus_per_node:
+                    # Append the command with CUDA_VISIBLE_DEVICES={device} to batch_commands
+                    batch_commands.append(
+                        f"CUDA_VISIBLE_DEVICES={device}, {aiml_path} {sys.argv[1]} {sys.argv[2]} -n {jobid} &"
+                    )
+                # Allow some time between calling instances of run
+                batch_commands.append("sleep 0.5")
+            # Wait for all background jobs to finish
+            batch_commands.append("wait")
+        else:
+            # Loop over each GPU device without multiple trials
+            for device in gpus_per_node:
+                # Append the command with CUDA_VISIBLE_DEVICES={device} to batch_commands
+                batch_commands.append(
+                    f"CUDA_VISIBLE_DEVICES={device}, {aiml_path} {sys.argv[1]} {sys.argv[2]} -n {jobid}"
+                )
+    elif (
+        "trials_per_job" in hyper_config[batch_type]
+        and hyper_config[batch_type]["trials_per_job"] > 1
+    ):
+        # Warn about the experimental nature of trials_per_job
+        logging.warning(
+            "The trails_per_job is experimental, be advised that some runs may fail."
+        )
+        logging.warning(
+            "Check the log and stdout/err files if simulations are dying to see the errors."
+        )
+        # Loop over the specified number of trials
+        for copy in range(hyper_config[batch_type]["trials_per_job"]):
+            # Append the command to batch_commands
+            batch_commands.append(
+                f"{aiml_path} {sys.argv[1]} {sys.argv[2]} -n {jobid} &"
+            )
+            # Allow some time between calling instances of run
+            batch_commands.append("sleep 0.5")
+        # Wait for all background jobs to finish
+        batch_commands.append("wait")
+    else:
+        # Append the default command to batch_commands
+        batch_commands.append(f"{aiml_path} {sys.argv[1]} {sys.argv[2]} -n {jobid}")
+
+    return batch_commands
+
+
 def prepare_slurm_launch_script(hyper_config: str, model_config: str) -> List[str]:
 
     slurm_options = ["#!/bin/bash -l"]
@@ -212,30 +282,11 @@ def prepare_slurm_launch_script(hyper_config: str, model_config: str) -> List[st
             slurm_options.append(f'{hyper_config["slurm"]["kernel"]}')
     aiml_path = "echo-run"
     slurm_id = "$SLURM_JOB_ID"
-    if (
-        "trials_per_job" in hyper_config["slurm"]
-        and hyper_config["slurm"]["trials_per_job"] > 1
-    ):
-        logging.warning(
-            "The trails_per_job is experimental, be advised that some runs may fail"
-        )
-        logging.warning(
-            "Check the log and stdout/err files if simulations are dying to see the errors"
-        )
-        for copy in range(hyper_config["slurm"]["trials_per_job"]):
-            slurm_options.append(
-                f"{aiml_path} {sys.argv[1]} {sys.argv[2]} -n {slurm_id} &"
-            )
-            # allow some time between calling instances of run
-            slurm_options.append("sleep 0.5")
-        slurm_options.append("wait")
-    else:
-        slurm_options.append(f"{aiml_path} {sys.argv[1]} {sys.argv[2]} -n {slurm_id}")
-    return slurm_options
+    # hyper_config, batch_type, aiml_path, jobid, batch_commands = []
+    return generate_batch_commands(hyper_config, "slurm", aiml_path, slurm_id, batch_commands=slurm_options)
 
 
 def prepare_pbs_launch_script(hyper_config: str, model_config: str) -> List[str]:
-
     pbs_options = ["#!/bin/bash -l"]
     for arg, val in hyper_config["pbs"]["batch"].items():
         if arg == "l" and type(val) == list:
@@ -267,26 +318,7 @@ def prepare_pbs_launch_script(hyper_config: str, model_config: str) -> List[str]
             pbs_options.append(f'{hyper_config["pbs"]["kernel"]}')
     aiml_path = "echo-run"
     pbs_jobid = "$PBS_JOBID"
-    if (
-        "trials_per_job" in hyper_config["pbs"]
-        and hyper_config["pbs"]["trials_per_job"] > 1
-    ):
-        logging.warning(
-            "The trails_per_job is experimental, be advised that some runs may fail"
-        )
-        logging.warning(
-            "Check the log and stdout/err files if simulations are dying to see the errors"
-        )
-        for copy in range(hyper_config["pbs"]["trials_per_job"]):
-            pbs_options.append(
-                f"{aiml_path} {sys.argv[1]} {sys.argv[2]} -n {pbs_jobid} &"
-            )
-            # allow some time between calling instances of run
-            pbs_options.append("sleep 0.5")
-        pbs_options.append("wait")
-    else:
-        pbs_options.append(f"{aiml_path} {sys.argv[1]} {sys.argv[2]} -n {pbs_jobid}")
-    return pbs_options
+    return generate_batch_commands(hyper_config, "pbs", aiml_path, pbs_jobid, batch_commands=pbs_options)
 
 
 def main():
@@ -552,7 +584,7 @@ def main():
         with open(script_location, "w") as fid:
             for line in launch_script:
                 fid.write(f"{line}\n")
-
+                
         """ Launch the slurm jobs """
         job_ids = []
         name_condition = "N" in hyper_config["pbs"]["batch"]
