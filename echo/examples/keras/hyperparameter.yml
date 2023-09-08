@@ -3,7 +3,8 @@ save_path: "./data"
 
 pbs:
   jobs: 1
-  trials_per_job: 1
+  tasks_per_worker: 1
+  gpus_per_node: 1
   bash: ["source ~/.bashrc", "conda activate echo"]
   batch:
     l: ["select=1:ncpus=8:ngpus=1:mem=64GB", "walltime=12:00:00"]

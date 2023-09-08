@@ -206,21 +206,21 @@ def generate_batch_commands(
         # Get the list of GPU devices, or convert a single integer to a list
         gpus_per_node = list(range(hyper_config[batch_type]["gpus_per_node"]))
         
-        # Check if "trials_per_job" is specified in hyper_config[batch_type]
+        # Check if "tasks_per_worker" is specified in hyper_config[batch_type]
         if (
-            "trials_per_job" in hyper_config[batch_type]
-            and hyper_config[batch_type]["trials_per_job"] > 1
+            "tasks_per_worker" in hyper_config[batch_type]
+            and hyper_config[batch_type]["tasks_per_worker"] > 1
         ):
-            # Warn about the experimental nature of trials_per_job
+            # Warn about the experimental nature of tasks_per_worker
             logging.warning(
-                "The trials_per_job is experimental; be advised that some runs may fail."
+                "The tasks_per_worker is experimental; be advised that some runs may fail."
             )
             logging.warning(
                 "Check the log and stdout/err files if simulations are dying to see the errors."
             )
 
             # Loop over the specified number of trials
-            for copy in range(hyper_config[batch_type]["trials_per_job"]):
+            for copy in range(hyper_config[batch_type]["tasks_per_worker"]):
                 # Loop over each GPU device
                 for device in gpus_per_node:
                     # Append the command with CUDA_VISIBLE_DEVICES={device} to batch_commands
@@ -239,10 +239,10 @@ def generate_batch_commands(
                     f"CUDA_VISIBLE_DEVICES={device}, {aiml_path} {sys.argv[1]} {sys.argv[2]} -n {jobid}"
                 )
     elif (
-        "trials_per_job" in hyper_config[batch_type]
-        and hyper_config[batch_type]["trials_per_job"] > 1
+        "tasks_per_worker" in hyper_config[batch_type]
+        and hyper_config[batch_type]["tasks_per_worker"] > 1
     ):
-        # Warn about the experimental nature of trials_per_job
+        # Warn about the experimental nature of tasks_per_worker
         logging.warning(
             "The trails_per_job is experimental, be advised that some runs may fail."
         )
@@ -250,7 +250,7 @@ def generate_batch_commands(
             "Check the log and stdout/err files if simulations are dying to see the errors."
         )
         # Loop over the specified number of trials
-        for copy in range(hyper_config[batch_type]["trials_per_job"]):
+        for copy in range(hyper_config[batch_type]["tasks_per_worker"]):
             # Append the command to batch_commands
             batch_commands.append(
                 f"{aiml_path} {sys.argv[1]} {sys.argv[2]} -n {jobid} &"
