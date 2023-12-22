@@ -236,8 +236,9 @@ def generate_batch_commands(
             for device in gpus_per_node:
                 # Append the command with CUDA_VISIBLE_DEVICES={device} to batch_commands
                 batch_commands.append(
-                    f"CUDA_VISIBLE_DEVICES={device}, {aiml_path} {sys.argv[1]} {sys.argv[2]} -n {jobid}"
+                    f"CUDA_VISIBLE_DEVICES={device}, {aiml_path} {sys.argv[1]} {sys.argv[2]} -n {jobid} &"
                 )
+            batch_commands.append("wait")
     elif (
         "tasks_per_worker" in hyper_config[batch_type]
         and hyper_config[batch_type]["tasks_per_worker"] > 1
