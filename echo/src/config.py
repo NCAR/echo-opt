@@ -6,6 +6,8 @@ import warnings
 from typing import Dict
 from echo.src.pruners import pruners
 from echo.src.samplers import samplers
+from optuna.storages import JournalStorage, JournalFileStorage
+
 
 warnings.filterwarnings("ignore")
 
@@ -23,6 +25,9 @@ def configure_storage(hyper_config):
         storage = f"sqlite:///{storage}"
     elif storage_type == "maria":
         storage = storage
+    elif storage_type == "nfs":
+        storage = os.path.join(save_path, storage)
+        storage = JournalStorage(JournalFileStorage(storage))
     return storage
 
 
@@ -130,6 +135,7 @@ def config_check(hyper_config, model_config, file_check=False):
     assert storage_type in [
         "sqlite",
         "maria",
-    ], f"The storage type {storage_type} is not supported. Select from sqlite or maria"
+        "nfs",
+    ], f"The storage type {storage_type} is not supported. Select from sqlite, maria, or nfs"
 
     return True
