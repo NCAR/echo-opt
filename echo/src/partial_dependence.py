@@ -148,7 +148,7 @@ def plot_partial_dependence(f, metrics, save_path, verbose=0, model_type='rf'):
         for k, feature in enumerate(features):
             pd_result = partial_dependence(model, X, feature, grid_resolution=50)
             x = pd_result["average"]
-            y = pd_result["values"]
+            y = pd_result["grid_values"]
             
             if input_cols[k] in hot:
                 
