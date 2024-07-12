@@ -70,13 +70,13 @@ def partial_dep(fn, input_cols, output_col, verbose=0, model_type='rf'):
             gamma=gamma,
             subsample=subsample,
             n_jobs=n_jobs,
+            early_stopping_rounds=10,
         )
 
         xgb_model.fit(
             x_train,
             y_train,
             eval_set=[(x_valid, y_valid)],
-            early_stopping_rounds=10,
             verbose=verbose,
         )
 
