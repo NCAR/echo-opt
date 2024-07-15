@@ -339,10 +339,20 @@ def main():
         plot_wrapper(study, "pareto_front", save_path, plot_config, metrics=metrics)
 
     """ Plot the partial dependences"""
-    plot_partial_dependence(study.trials_dataframe(), metrics, save_path)
+    try:
+        # Plot the partial dependences
+        plot_partial_dependence(study.trials_dataframe(), metrics, save_path)
+    except ValueError as e:
+        logging.info(f"There are not enough completed trials to compute partial dependencies.")
+    except Exception as e:
+        # Catch any other exceptions that might occur
+        logging.info(f"An unexpected error occurred in plot_partial_dependence: {e}")
+
 
     """ Compute the optuna-supported parameter importances """
-    if complete_trials > 1:
+    if complete_trials < 10:
+        logging.info(f"There are not enough completed trials to compute importances. At least 10 are needed")
+    else:
         try:
             if single_objective:
                 logging.info("Computing fAVNOVA importances, this may take awhile")
