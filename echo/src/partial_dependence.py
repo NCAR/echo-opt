@@ -70,13 +70,13 @@ def partial_dep(fn, input_cols, output_col, verbose=0, model_type='rf'):
             gamma=gamma,
             subsample=subsample,
             n_jobs=n_jobs,
+            early_stopping_rounds=10,
         )
 
         xgb_model.fit(
             x_train,
             y_train,
             eval_set=[(x_valid, y_valid)],
-            early_stopping_rounds=10,
             verbose=verbose,
         )
 
@@ -148,7 +148,7 @@ def plot_partial_dependence(f, metrics, save_path, verbose=0, model_type='rf'):
         for k, feature in enumerate(features):
             pd_result = partial_dependence(model, X, feature, grid_resolution=50)
             x = pd_result["average"]
-            y = pd_result["values"]
+            y = pd_result["grid_values"]
             
             if input_cols[k] in hot:
                 

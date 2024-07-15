@@ -225,7 +225,7 @@ def generate_batch_commands(
                 for device in gpus_per_node:
                     # Append the command with CUDA_VISIBLE_DEVICES={device} to batch_commands
                     batch_commands.append(
-                        f"CUDA_VISIBLE_DEVICES={device}, {aiml_path} {sys.argv[1]} {sys.argv[2]} -n {jobid} &"
+                        f"CUDA_VISIBLE_DEVICES={device}, {aiml_path} -n {jobid} &"
                     )
                 # Allow some time between calling instances of run
                 batch_commands.append("sleep 0.5")
@@ -236,7 +236,7 @@ def generate_batch_commands(
             for device in gpus_per_node:
                 # Append the command with CUDA_VISIBLE_DEVICES={device} to batch_commands
                 batch_commands.append(
-                    f"CUDA_VISIBLE_DEVICES={device}, {aiml_path} {sys.argv[1]} {sys.argv[2]} -n {jobid} &"
+                    f"CUDA_VISIBLE_DEVICES={device}, {aiml_path} -n {jobid} &"
                 )
             batch_commands.append("wait")
     elif (
@@ -254,7 +254,7 @@ def generate_batch_commands(
         for copy in range(hyper_config[batch_type]["tasks_per_worker"]):
             # Append the command to batch_commands
             batch_commands.append(
-                f"{aiml_path} {sys.argv[1]} {sys.argv[2]} -n {jobid} &"
+                f"{aiml_path} -n {jobid} &"
             )
             # Allow some time between calling instances of run
             batch_commands.append("sleep 0.5")
@@ -262,7 +262,7 @@ def generate_batch_commands(
         batch_commands.append("wait")
     else:
         # Append the default command to batch_commands
-        batch_commands.append(f"{aiml_path} {sys.argv[1]} {sys.argv[2]} -n {jobid}")
+        batch_commands.append(f"{aiml_path} -n {jobid}")
 
     return batch_commands
 
@@ -281,7 +281,9 @@ def prepare_slurm_launch_script(hyper_config: str, model_config: str) -> List[st
     if "kernel" in hyper_config["slurm"]:
         if hyper_config["slurm"]["kernel"] is not None:
             slurm_options.append(f'{hyper_config["slurm"]["kernel"]}')
-    aiml_path = "echo-run"
+    hyper_base = os.path.basename(sys.argv[1])
+    model_base = os.path.basename(sys.argv[2])
+    aiml_path = f"echo-run {hyper_base} {model_base}"
     slurm_id = "$SLURM_JOB_ID"
     # hyper_config, batch_type, aiml_path, jobid, batch_commands = []
     return generate_batch_commands(hyper_config, "slurm", aiml_path, slurm_id, batch_commands=slurm_options)
@@ -317,7 +319,9 @@ def prepare_pbs_launch_script(hyper_config: str, model_config: str) -> List[str]
     if "kernel" in hyper_config["pbs"]:
         if hyper_config["pbs"]["kernel"] is not None:
             pbs_options.append(f'{hyper_config["pbs"]["kernel"]}')
-    aiml_path = "echo-run"
+    hyper_base = os.path.basename(sys.argv[1])
+    model_base = os.path.basename(sys.argv[2])
+    aiml_path = f"echo-run {hyper_base} {model_base}"
     pbs_jobid = "$PBS_JOBID"
     return generate_batch_commands(hyper_config, "pbs", aiml_path, pbs_jobid, batch_commands=pbs_options)
 
@@ -387,8 +391,9 @@ def main():
 
     """ Save the config files to the save_path """
     for fn in [_hyper_config, _model_config]:
-        if not os.path.isfile(os.path.join(save_path, fn)):
-            shutil.copyfile(fn, os.path.join(save_path, fn))
+        fn_base = os.path.basename(fn)
+        if not os.path.isfile(os.path.join(save_path, fn_base)):
+            shutil.copyfile(fn, os.path.join(save_path, fn_base))
 
     """ Stream output to file """
     _log = False if "log" not in hyper_config else hyper_config["log"]

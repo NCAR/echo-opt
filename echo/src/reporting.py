@@ -70,13 +70,13 @@ def get_sec(time_str):
 def successful_trials(study):
     total_completed_trials = 0
     for trial in study.get_trials():
-        if str(trial.state) in ["TrialState.COMPLETE", "TrialState.PRUNED"]:
+        if str(trial.state.name) in ["COMPLETE", "PRUNED"]:
             total_completed_trials += 1
     return total_completed_trials
 
 
 def trial_report(study):
-    states = [t.state for t in study.get_trials()]
+    states = [t.state.name for t in study.get_trials()]
     state_histo = Counter(states)
     return state_histo
 
