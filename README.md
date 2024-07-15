@@ -152,6 +152,11 @@ optuna:
       settings:
         name: "activation"
         choices: ["relu", "linear", "leaky", "elu", "prelu"]
+  enqueue:
+  - num_dense: 1
+    dropout: 0.2
+    learning_rate: 0.001
+    activation: "relu"
 ```
 The save_path field sets the location where all generated data will be saved.
 * save_path: Directory path where data will be saved. 
@@ -177,6 +182,7 @@ The subfields within the "optuna" field have the following functionality:
 * parameters
   + type: Option to select an optuna trial setting. See the [optuna Trial documentation](https://optuna.readthedocs.io/en/stable/reference/generated/optuna.trial.Trial.html?highlight=suggest#optuna.trial.Trial.suggest_uniform) for what is available. Currently, this package supports the available options from optuna: "categorical", "discrete_uniform", "float", "int", "loguniform", and "uniform".
   + settings: This dictionary field allows you to specify any settings that accompany the optuna trial type. In the example above, the named num_dense parameter is stated to be an integer with values ranging from 0 to 10. To see all the available options, consolt the [optuna Trial documentation](https://optuna.readthedocs.io/en/stable/reference/generated/optuna.trial.Trial.html?highlight=suggest#optuna.trial.Trial.suggest_uniform)
+* enqueue: [Optional] Adding this option will allow the user to add trials with pre-defined values when the study is first initialized, that will be run in order according to their id. Each entry added must be structured as a dictionary with the paramater names exactly matching all the hyperparameter name field in the parameters field.
   
 Lastly, the "log" field allows you to save the logging details to file; they will always be printed to stdout. If this field is removed, logging details will only be printed to stdout.
 
