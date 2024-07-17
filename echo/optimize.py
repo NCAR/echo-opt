@@ -530,6 +530,12 @@ def main():
             )
             sys.exit()
 
+    # Check if the study is empty and the 'enqueue' option is provided
+    if len(hyper_config['optuna'].get('enqueue', [])) and len(study.trials) == 0:
+        for params in hyper_config['optuna']['enqueue']:
+            logging.info(f"Adding trial parameters {params} to the study")
+            study.enqueue_trial(params, skip_if_exists=True)
+
     """
         Override to create the database but skip submitting jobs.
     """

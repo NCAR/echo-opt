@@ -182,6 +182,18 @@ def main():
         )
     logging.info(f"Loaded study {study_name} located at {storage}")
 
+    # Check if the study is empty and the 'enqueue' option is provided
+    if len(hyper_config['optuna'].get('enqueue', [])) and len(study.trials) == 0:
+        for params in hyper_config['optuna']['enqueue']:
+            logging.info(f"Adding trial parameters to the study {params}")
+            study.enqueue_trial(params, skip_if_exists=True)
+
+    # Check here if 'trial_results' directory exists, which should be created by optimize.py
+    # The reason for it being here is if you are running in debug mode 
+    trial_results_path = os.path.join(hyper_config['save_path'], "trial_results")
+    if not os.path.isdir(trial_results_path):
+        os.makedirs(trial_results_path, exist_ok=True)
+
     """ Initialize objective function """
     objective = Objective(model_config, metric)
     objective.set_properties(node_id=node_id, device=device)
