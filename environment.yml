@@ -7,7 +7,7 @@ dependencies:
   - sphinx
   - pytest
   - setuptools
-  - optuna
+  - optuna<4.0
   - numpy
   - scipy
   - matplotlib
