@@ -3,12 +3,12 @@ channels:
  - conda-forge
  - pytorch
 dependencies:
-  - python=3.10
+  - python=3.12
   - sphinx
   - pytest
   - setuptools
-  - optuna
-  - numpy<1.23.0
+  - optuna<4.0
+  - numpy
   - scipy
   - matplotlib
   - scikit-learn
