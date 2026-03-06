@@ -97,7 +97,7 @@ pbs:
   kernel: "ncar_pylib /glade/work/schreck/py37"
   bash: ["module load ncarenv/1.3 gnu/8.3.0 openmpi/3.1.4 python/3.7.5 cuda/10.1"]
   batch:
-    l: ["select=1:ncpus=8:ngpus=1:mem=128GB", "walltime=12:00:00"]
+    l: ["select=1:ncpus=8:ngpus=1:mem=128GB:gpu_type=a100_80gb", "walltime=12:00:00"]
     A: "NAML0001"
     q: "casper"
     N: "echo_trial"
@@ -164,7 +164,24 @@ The save_path field sets the location where all generated data will be saved.
 The log field allows you to save the logging details to file to save_path; they will always be printed to stdout. If this field is removed, logging details will only be printed to stdout.
 * log: boolean to save log.txt in save_path.
 
-The subfields within "pbs" and slurm" should mostly be familiar to you. In this example there would be 10 jobs submitted to pbs queue and 15 jobs to the slurm queue. Most HPCs just use one or the other, so make sure to only speficy what your system supports. The kernel field is optional and can be any call(s) to activate a conda/python/ncar_pylib/etc environment. Additional snippets that you might need in your launch script can be added to the list in the "bash" field. For example, as in the example above, loading modules before training a model is required. Note that the bash options will be run in order, and before the kernel field. Remove or leave the kernel field blank if you do not need it.
+The subfields within "pbs" and "slurm" should mostly be familiar to you. In this example there would be 10 jobs submitted to pbs queue and 15 jobs to the slurm queue. Most HPCs just use one or the other, so make sure to only specify what your system supports. The kernel field is optional and can be any call(s) to activate a conda/python/ncar_pylib/etc environment. Additional snippets that you might need in your launch script can be added to the list in the "bash" field. For example, as in the example above, loading modules before training a model is required. Note that the bash options will be run in order, and before the kernel field. Remove or leave the kernel field blank if you do not need it.
+
+**Casper GPU type selection**: On NCAR Casper, the GPU architecture is specified using `gpu_type` inside the PBS select string. The exact values and their node configurations are:
+
+| `gpu_type=` value | GPU | Notes |
+|---|---|---|
+| `v100_4way` | V100 32 GB | 4 GPUs per node |
+| `v100_8way` | V100 32 GB | 8 GPUs per node |
+| `a100_40gb` | A100 40 GB | Data & Viz queue |
+| `a100_80gb` | A100 80 GB | 4 GPUs per node (ML/GPGPU) |
+| `h100` | H100 80 GB | 4 GPUs per node |
+| `gp100` | GP100 16 GB | Data & Viz queue |
+| `l40` | L40 48 GB | Data & Viz queue |
+| `mi300a` | MI300A 128 GB | Must request `ngpus=4`, exclusive-use only |
+
+Example: `-l select=1:ncpus=8:ngpus=1:mem=128GB:gpu_type=a100_80gb`
+
+See the [Casper node types documentation](https://ncar-hpc-docs.readthedocs.io/en/latest/compute-systems/casper/casper-node-types/) for the authoritative list.
 
 The subfields within the "optuna" field have the following functionality:
 * storage: sqlite or mysql destination.
@@ -174,14 +191,14 @@ The subfields within the "optuna" field have the following functionality:
  * If "maria", specify the full path including username:password in the storage field (for example, mysql://user:pw@someserver.ucar.edu/optuna).
 * objective: The path to the user-supplied objective class
 * metric: The metric to be used to determine the model performance. 
-* direction: Indicates which direction the metric must go to represent improvement (pick from maximimize or minimize)
+* direction: Indicates which direction the metric must go to represent improvement (pick from `maximize` or `minimize`). For **multi-objective optimization**, supply a list of directions (e.g. `direction: ["minimize", "maximize"]`) and a list of metrics (e.g. `metric: ["val_loss", "val_accuracy"]`). Multi-objective studies use `TPESampler` or `NSGAIISampler` and produce a Pareto front. Note: the `optuna.multi_objective` submodule was removed in optuna 4.0 — all multi-objective support now goes through the unified `create_study(directions=[...])` API, which ECHO uses automatically.
 * n_trials: The number of trials in the study.
 * gpu: Set to true to obtain the GPUs and their IDs
 * sampler
   + type: Choose how optuna will do parameter estimation. The default choice both here and in optuna is the [Tree-structured Parzen Estimator Approach](https://towardsdatascience.com/a-conceptual-explanation-of-bayesian-model-based-hyperparameter-optimization-for-machine-learning-b8172278050f), [e.g. TPESampler](https://papers.nips.cc/paper/4443-algorithms-for-hyper-parameter-optimization.pdf). See the optuna documentation for the different options. For some samplers (e.g. GridSearch) additional fields may be included (e.g. search_space). 
 * parameters
-  + type: Option to select an optuna trial setting. See the [optuna Trial documentation](https://optuna.readthedocs.io/en/stable/reference/generated/optuna.trial.Trial.html?highlight=suggest#optuna.trial.Trial.suggest_uniform) for what is available. Currently, this package supports the available options from optuna: "categorical", "discrete_uniform", "float", "int", "loguniform", and "uniform".
-  + settings: This dictionary field allows you to specify any settings that accompany the optuna trial type. In the example above, the named num_dense parameter is stated to be an integer with values ranging from 0 to 10. To see all the available options, consolt the [optuna Trial documentation](https://optuna.readthedocs.io/en/stable/reference/generated/optuna.trial.Trial.html?highlight=suggest#optuna.trial.Trial.suggest_uniform)
+  + type: Option to select an optuna trial setting. See the [optuna Trial documentation](https://optuna.readthedocs.io/en/stable/reference/generated/optuna.trial.Trial.html) for what is available. Currently, this package supports: "categorical", "float", "int", "loguniform", "uniform", and "discrete_uniform". Note: "loguniform", "uniform", and "discrete_uniform" were removed from optuna 4.0 — ECHO maps them internally to `suggest_float` for backward compatibility, but prefer "float" for new configs (use `log: True` in settings for log-uniform sampling).
+  + settings: This dictionary field allows you to specify any settings that accompany the optuna trial type. In the example above, the named num_dense parameter is stated to be an integer with values ranging from 0 to 10. To see all the available options, consult the [optuna Trial documentation](https://optuna.readthedocs.io/en/stable/reference/generated/optuna.trial.Trial.html).
 * enqueue: [Optional] Adding this option will allow the user to add trials with pre-defined values when the study is first initialized, that will be run in order according to their id. Each entry added must be structured as a dictionary with the paramater names exactly matching all the hyperparameter name field in the parameters field.
   
 Lastly, the "log" field allows you to save the logging details to file; they will always be printed to stdout. If this field is removed, logging details will only be printed to stdout.
@@ -233,12 +250,15 @@ def custom_updates(trial, conf):
     hyperparameters = conf["optuna"]["parameters"]
 
     # Now update some via custom rules
-    num_dense = trial.suggest_discrete_uniform(**hyperparameters["num_dense"])
+    # Note: suggest_discrete_uniform was removed in optuna 4.0; use suggest_int or
+    # suggest_float(..., step=q) instead.
+    settings = hyperparameters["num_dense"]["settings"]
+    num_dense = trial.suggest_int(settings["name"], settings["low"], settings["high"])
 
     # Update the config based on optuna's suggestion
-    conf["model"]["dense_hidden_dims"] = [1000 for k in range(num_dense)]        
+    conf["model"]["dense_hidden_dims"] = [1000 for k in range(num_dense)]
 
-    return conf 
+    return conf
 ```
 
 The method should be called first thing in the custom Objective.train method (see the example Objective above). You may have noticed that the configuration (named conf) contains both hyperparameter and model fields. This package will copy the hyperparameter optuna field to the model configuration for convenience, so that we can reduce the total number of class and method dependencies (which helps me keep the code generalized). This occurs in the run.py script.

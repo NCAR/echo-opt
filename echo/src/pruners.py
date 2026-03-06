@@ -1,4 +1,3 @@
-from optuna.pruners.__init__ import __all__ as supported_pruners
 from typing import Dict
 import logging
 import optuna
@@ -9,13 +8,24 @@ warnings.filterwarnings("ignore")
 
 logger = logging.getLogger(__name__)
 
+SUPPORTED_PRUNERS = [
+    "BasePruner",
+    "HyperbandPruner",
+    "MedianPruner",
+    "NopPruner",
+    "PatientPruner",
+    "PercentilePruner",
+    "SuccessiveHalvingPruner",
+    "ThresholdPruner",
+]
+
 
 def pruners(pruner):
     _type = pruner.pop("type")
 
     assert (
-        _type in supported_pruners
-    ), f"Pruner {_type} is not valid. Select from {supported_pruners}"
+        _type in SUPPORTED_PRUNERS
+    ), f"Pruner {_type} is not valid. Select from {SUPPORTED_PRUNERS}"
 
     if _type == "BasePruner":
         return optuna.pruners.BasePruner(**pruner)
@@ -63,4 +73,4 @@ class KerasPruningCallback(object):
         self.trial.report(current_score, step=epoch)
         if self.trial.should_prune():
             message = "Trial was pruned at epoch {}.".format(epoch)
-            raise optuna.structs.TrialPruned(message)
+            raise optuna.TrialPruned(message)

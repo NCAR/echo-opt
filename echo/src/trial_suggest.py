@@ -28,12 +28,21 @@ def trial_suggest_loader(trial, config):
     if _type == "categorical":
         return trial.suggest_categorical(**config["settings"])
     if _type == "discrete_uniform":
-        return int(trial.suggest_discrete_uniform(**config["settings"]))
+        # suggest_discrete_uniform was removed in optuna 4.0; map to suggest_float with step
+        settings = dict(config["settings"])
+        q = settings.pop("q", None)
+        if q is not None:
+            settings["step"] = q
+        return float(trial.suggest_float(**settings))
     if _type == "float":
         return float(trial.suggest_float(**config["settings"]))
     if _type == "int":
         return int(trial.suggest_int(**config["settings"]))
     if _type == "loguniform":
-        return float(trial.suggest_loguniform(**config["settings"]))
+        # suggest_loguniform was removed in optuna 4.0; map to suggest_float with log=True
+        settings = dict(config["settings"])
+        settings["log"] = True
+        return float(trial.suggest_float(**settings))
     if _type == "uniform":
-        return float(trial.suggest_uniform(**config["settings"]))
+        # suggest_uniform was removed in optuna 4.0; map to suggest_float
+        return float(trial.suggest_float(**config["settings"]))

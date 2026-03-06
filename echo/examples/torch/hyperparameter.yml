@@ -7,7 +7,7 @@ pbs:
   gpus_per_node: 1
   bash: ["source ~/.bashrc", "conda activate echo"]
   batch:
-    l: ["select=1:ncpus=8:ngpus=1:mem=64GB", "walltime=12:00:00"]
+    l: ["select=1:ncpus=8:ngpus=1:mem=64GB:gpu_type=a100_80gb", "walltime=12:00:00"]
     A: "NAML0001"
     q: "casper"
     N: "torch_example"

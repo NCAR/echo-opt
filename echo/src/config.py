@@ -6,7 +6,11 @@ import warnings
 from typing import Dict
 from echo.src.pruners import pruners
 from echo.src.samplers import samplers
-from optuna.storages import JournalStorage, JournalFileStorage
+try:
+    # optuna >= 4.0 renamed JournalFileStorage to JournalFileBackend
+    from optuna.storages import JournalStorage, JournalFileBackend as JournalFileStorage
+except ImportError:
+    from optuna.storages import JournalStorage, JournalFileStorage
 
 
 warnings.filterwarnings("ignore")
@@ -39,9 +43,9 @@ def configure_sampler(hyper_config):
         if single_objective:  # single-objective
             logger.warning("\tUsing the default TPESampler class.")
             sampler = optuna.samplers.TPESampler()
-        else:  # multi-objective equivalent of TPESampler
-            logger.warning("\tUsing the default MOTPEMultiObjectiveSampler class.")
-            sampler = optuna.multi_objective.samplers.MOTPEMultiObjectiveSampler()
+        else:  # multi-objective: optuna 3+ uses TPESampler natively
+            logger.warning("\tUsing the default TPESampler class (multi-objective).")
+            sampler = optuna.samplers.TPESampler()
     else:
         sampler = samplers(hyper_config["optuna"]["sampler"])
     return sampler
