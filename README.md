@@ -1,5 +1,9 @@
 # **E**arth **C**omputing **H**yperparameter **O**ptimization (ECHO): A distributed hyperparameter optimization package build with Optuna
 
+<p align="center">
+  <img src="docs/echo_logo.png" alt="ECHO logo" width="400"/>
+</p>
+
 ### Install
 
 To install a stable version of ECHO from PyPI, use the following command:
@@ -170,13 +174,12 @@ The subfields within "pbs" and "slurm" should mostly be familiar to you. In this
 
 | `gpu_type=` value | GPU | Notes |
 |---|---|---|
-| `v100_4way` | V100 32 GB | 4 GPUs per node |
-| `v100_8way` | V100 32 GB | 8 GPUs per node |
+| `v100_32gb` | V100 32 GB | |
 | `a100_40gb` | A100 40 GB | Data & Viz queue |
 | `a100_80gb` | A100 80 GB | 4 GPUs per node (ML/GPGPU) |
-| `h100` | H100 80 GB | 4 GPUs per node |
-| `gp100` | GP100 16 GB | Data & Viz queue |
-| `l40` | L40 48 GB | Data & Viz queue |
+| `h100_80gb` | H100 80 GB | 4 GPUs per node |
+| `gp100_16gb` | GP100 16 GB | Data & Viz queue |
+| `l40_45gb` | L40 48 GB | Data & Viz queue |
 | `mi300a` | MI300A 128 GB | Must request `ngpus=4`, exclusive-use only |
 
 Example: `-l select=1:ncpus=8:ngpus=1:mem=128GB:gpu_type=a100_80gb`
@@ -186,9 +189,10 @@ See the [Casper node types documentation](https://ncar-hpc-docs.readthedocs.io/e
 The subfields within the "optuna" field have the following functionality:
 * storage: sqlite or mysql destination.
 * study_name: The name of the study.
-* storage_type: Choose "sqlite" or "maria" if a MariaDB is setup. 
- * If "sqlite", the storage field will automatically be appended to the save_path field (e.g. sql:///{save_path}/mlp.db)
- * If "maria", specify the full path including username:password in the storage field (for example, mysql://user:pw@someserver.ucar.edu/optuna).
+* storage_type: Choose the backend that matches your environment:
+ * `"sqlite"` — the storage field is joined to save_path automatically (e.g. `sqlite:///{save_path}/mlp.db`). Simple and works well for single-node runs.
+ * `"maria"` — specify a full MariaDB/MySQL URL in the storage field (e.g. `mysql://user:pw@someserver.ucar.edu/optuna`). Best for large distributed studies with many concurrent workers.
+ * `"nfs"` — uses Optuna's `JournalFileBackend` (a plain append-only file) instead of a relational database. The storage field is joined to save_path. **Recommended when SQLite locking is unreliable on your shared filesystem** (common on Lustre/GPFS mounts). Example: `storage: "study_journal.log"`, `storage_type: "nfs"`.
 * objective: The path to the user-supplied objective class
 * metric: The metric to be used to determine the model performance. 
 * direction: Indicates which direction the metric must go to represent improvement (pick from `maximize` or `minimize`). For **multi-objective optimization**, supply a list of directions (e.g. `direction: ["minimize", "maximize"]`) and a list of metrics (e.g. `metric: ["val_loss", "val_accuracy"]`). Multi-objective studies use `TPESampler` or `NSGAIISampler` and produce a Pareto front. Note: the `optuna.multi_objective` submodule was removed in optuna 4.0 — all multi-objective support now goes through the unified `create_study(directions=[...])` API, which ECHO uses automatically.
