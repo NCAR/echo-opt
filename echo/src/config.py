@@ -7,10 +7,13 @@ from typing import Dict
 from echo.src.pruners import pruners
 from echo.src.samplers import samplers
 try:
-    # optuna >= 4.0 renamed JournalFileStorage to JournalFileBackend
-    from optuna.storages import JournalStorage, JournalFileBackend as JournalFileStorage
+    # optuna >= 4.0: JournalFileBackend lives in optuna.storages.journal
+    from optuna.storages.journal import JournalFileBackend
+    from optuna.storages import JournalStorage
 except ImportError:
-    from optuna.storages import JournalStorage, JournalFileStorage
+    # optuna < 4.0: the class was called JournalFileStorage
+    from optuna.storages import JournalStorage
+    from optuna.storages import JournalFileStorage as JournalFileBackend
 
 
 warnings.filterwarnings("ignore")
@@ -20,6 +23,23 @@ logger = logging.getLogger(__name__)
 
 
 def configure_storage(hyper_config):
+    """Build and return an Optuna storage backend from the hyperparameter config.
+
+    Parameters
+    ----------
+    hyper_config : dict
+        Full hyperparameter config. Reads ``save_path``,
+        ``optuna.storage_type``, and ``optuna.storage``.
+
+    Returns
+    -------
+    str or JournalStorage
+        - ``"sqlite"`` → ``sqlite:///{save_path}/{storage}`` URL string.
+        - ``"maria"``  → the raw ``storage`` string (full MySQL URL).
+        - ``"nfs"``    → a :class:`optuna.storages.JournalStorage` backed by a
+          :class:`JournalFileBackend` at ``{save_path}/{storage}``. Use this
+          for shared network filesystems where SQLite locking is unreliable.
+    """
     # Set up storage db
     save_path = hyper_config["save_path"]
     storage_type = hyper_config["optuna"]["storage_type"]
@@ -31,11 +51,28 @@ def configure_storage(hyper_config):
         storage = storage
     elif storage_type == "nfs":
         storage = os.path.join(save_path, storage)
-        storage = JournalStorage(JournalFileStorage(storage))
+        storage = JournalStorage(JournalFileBackend(storage))
     return storage
 
 
 def configure_sampler(hyper_config):
+    """Instantiate and return the Optuna sampler specified in the config.
+
+    If no ``sampler`` key is present under ``optuna``, defaults to
+    :class:`optuna.samplers.TPESampler` for both single- and multi-objective
+    studies.
+
+    Parameters
+    ----------
+    hyper_config : dict
+        Full hyperparameter config. Reads ``optuna.direction`` and
+        ``optuna.sampler`` (optional).
+
+    Returns
+    -------
+    optuna.samplers.BaseSampler
+        Configured sampler instance.
+    """
     direction = hyper_config["optuna"]["direction"]
     single_objective = isinstance(direction, str)
     if "sampler" not in hyper_config["optuna"]:
@@ -52,6 +89,21 @@ def configure_sampler(hyper_config):
 
 
 def configure_pruner(hyper_config):
+    """Instantiate and return the Optuna pruner specified in the config.
+
+    If no ``pruner`` key is present under ``optuna``, defaults to
+    :class:`optuna.pruners.NopPruner` (no pruning).
+
+    Parameters
+    ----------
+    hyper_config : dict
+        Full hyperparameter config. Reads ``optuna.pruner`` (optional).
+
+    Returns
+    -------
+    optuna.pruners.BasePruner
+        Configured pruner instance.
+    """
     if "pruner" not in hyper_config["optuna"]:
         logger.warning("No pruner was supplied in the hyperparameter config file.")
         logger.warning("\tUsing the default NopPruner class (no pruning).")
@@ -62,6 +114,21 @@ def configure_pruner(hyper_config):
 
 
 def recursive_config_reader(_dict: Dict[str, str], path: bool = None):
+    """Yield ``(key_path, value)`` for every leaf node in a nested dict.
+
+    Parameters
+    ----------
+    _dict : dict
+        Arbitrarily nested dictionary.
+    path : list, optional
+        Accumulated key path (used internally for recursion).
+
+    Yields
+    ------
+    tuple[list[str], any]
+        ``(key_path, leaf_value)`` where ``key_path`` is a list of keys
+        leading to the leaf from the top-level dict.
+    """
 
     if path is None:
         path = []
@@ -75,6 +142,18 @@ def recursive_config_reader(_dict: Dict[str, str], path: bool = None):
 
 
 def recursive_update(nested_keys, dictionary, update):
+    """Update a nested dictionary at the location specified by ``nested_keys``.
+
+    Parameters
+    ----------
+    nested_keys : list[str]
+        Ordered list of keys forming the path to the target leaf, e.g.
+        ``["optimizer", "learning_rate"]``.
+    dictionary : dict
+        The dict to update in-place.
+    update : any
+        The new value to assign at the leaf.
+    """
     if isinstance(dictionary, dict) and len(nested_keys) > 1:
         recursive_update(nested_keys[1:], dictionary[nested_keys[0]], update)
     else:
@@ -82,6 +161,26 @@ def recursive_update(nested_keys, dictionary, update):
 
 
 def config_check(hyper_config, model_config, file_check=False):
+    """Validate the hyperparameter and model configuration dictionaries.
+
+    Raises ``AssertionError`` for any missing or invalid field. Can optionally
+    load configs from file paths instead of pre-parsed dicts.
+
+    Parameters
+    ----------
+    hyper_config : dict or str
+        Hyperparameter config dict, or a file path if ``file_check=True``.
+    model_config : dict or str
+        Model config dict, or a file path if ``file_check=True``.
+    file_check : bool, optional
+        If True, treat both arguments as file paths and load them. Also
+        verifies that the files exist. Default is False.
+
+    Returns
+    -------
+    bool
+        Always returns True on success; raises on failure.
+    """
 
     if file_check:
         assert os.path.isfile(

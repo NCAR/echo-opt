@@ -198,70 +198,67 @@ def fix_broken_study(
 
 
 def generate_batch_commands(
-    hyper_config, batch_type, aiml_path, jobid, batch_commands = []
+    hyper_config, batch_type, aiml_path, jobid, batch_commands=None
 ) -> List[str]:
+    """Build the list of shell commands that run echo-run inside a job script.
 
-    # Check if "gpus_per_node" is specified in hyper_config[batch_type]
+    When ``gpus_per_node`` is set, each GPU gets exactly one process pinned to
+    it via ``CUDA_VISIBLE_DEVICES=<device>``.  All processes are launched in
+    the background (``&``) and a single ``wait`` is appended so the job does
+    not exit until every worker finishes.
+
+    When no GPUs are present but ``tasks_per_worker > 1``, that many CPU-only
+    workers are launched in parallel the same way.
+
+    Parameters
+    ----------
+    hyper_config : dict
+        Full hyperparameter config.
+    batch_type : str
+        ``"pbs"`` or ``"slurm"`` — selects the sub-dict of ``hyper_config``.
+    aiml_path : str
+        The ``echo-run <hyper.yml> <model.yml>`` command string.
+    jobid : str
+        Scheduler job-ID variable (e.g. ``"$PBS_JOBID"`` or
+        ``"$SLURM_JOB_ID"``).
+    batch_commands : list, optional
+        Accumulator list; header lines (shebang, #PBS/#SBATCH directives, bash
+        setup) are passed in here and the run commands are appended.  Defaults
+        to a new empty list.
+
+    Returns
+    -------
+    list[str]
+        The complete script as a list of lines.
+    """
+    if batch_commands is None:
+        batch_commands = []
+
     if "gpus_per_node" in hyper_config[batch_type]:
-        # Get the list of GPU devices, or convert a single integer to a list
-        gpus_per_node = list(range(hyper_config[batch_type]["gpus_per_node"]))
-        
-        # Check if "tasks_per_worker" is specified in hyper_config[batch_type]
-        if (
-            "tasks_per_worker" in hyper_config[batch_type]
-            and hyper_config[batch_type]["tasks_per_worker"] > 1
-        ):
-            # Warn about the experimental nature of tasks_per_worker
-            logging.warning(
-                "The tasks_per_worker is experimental; be advised that some runs may fail."
+        # One process per GPU, each explicitly pinned via CUDA_VISIBLE_DEVICES.
+        # gpus_per_node is an integer; convert to a 0-based device list.
+        gpus = list(range(hyper_config[batch_type]["gpus_per_node"]))
+        for device in gpus:
+            batch_commands.append(
+                f"CUDA_VISIBLE_DEVICES={device} {aiml_path} -n {jobid} &"
             )
-            logging.warning(
-                "Check the log and stdout/err files if simulations are dying to see the errors."
-            )
+        batch_commands.append("wait")
 
-            # Loop over the specified number of trials
-            for copy in range(hyper_config[batch_type]["tasks_per_worker"]):
-                # Loop over each GPU device
-                for device in gpus_per_node:
-                    # Append the command with CUDA_VISIBLE_DEVICES={device} to batch_commands
-                    batch_commands.append(
-                        f"CUDA_VISIBLE_DEVICES={device}, {aiml_path} -n {jobid} &"
-                    )
-                # Allow some time between calling instances of run
-                batch_commands.append("sleep 0.5")
-            # Wait for all background jobs to finish
-            batch_commands.append("wait")
-        else:
-            # Loop over each GPU device without multiple trials
-            for device in gpus_per_node:
-                # Append the command with CUDA_VISIBLE_DEVICES={device} to batch_commands
-                batch_commands.append(
-                    f"CUDA_VISIBLE_DEVICES={device}, {aiml_path} -n {jobid} &"
-                )
-            batch_commands.append("wait")
     elif (
         "tasks_per_worker" in hyper_config[batch_type]
         and hyper_config[batch_type]["tasks_per_worker"] > 1
     ):
-        # Warn about the experimental nature of tasks_per_worker
+        # Multiple CPU-only workers sharing the node.
         logging.warning(
-            "The trails_per_job is experimental, be advised that some runs may fail."
+            "tasks_per_worker without gpus_per_node: launching %d CPU workers in parallel.",
+            hyper_config[batch_type]["tasks_per_worker"],
         )
-        logging.warning(
-            "Check the log and stdout/err files if simulations are dying to see the errors."
-        )
-        # Loop over the specified number of trials
-        for copy in range(hyper_config[batch_type]["tasks_per_worker"]):
-            # Append the command to batch_commands
-            batch_commands.append(
-                f"{aiml_path} -n {jobid} &"
-            )
-            # Allow some time between calling instances of run
-            batch_commands.append("sleep 0.5")
-        # Wait for all background jobs to finish
+        for _ in range(hyper_config[batch_type]["tasks_per_worker"]):
+            batch_commands.append(f"{aiml_path} -n {jobid} &")
         batch_commands.append("wait")
+
     else:
-        # Append the default command to batch_commands
+        # Single worker — no GPU pinning, no background execution needed.
         batch_commands.append(f"{aiml_path} -n {jobid}")
 
     return batch_commands
@@ -305,7 +302,7 @@ def prepare_pbs_launch_script(hyper_config: str, model_config: str) -> List[str]
                 pbs_options.append(f"#PBS -{arg} {val}")
         elif arg in ["o", "e"]:
             if val != "/dev/null":
-                _val = os.path.append(hyper_config["save_path"], val)
+                _val = os.path.join(hyper_config["save_path"], val)
                 # info?
                 pbs_options.append(f"#PBS -{arg} {_val}")
             else:

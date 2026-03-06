@@ -18,6 +18,42 @@ supported_trials = [
 
 
 def trial_suggest_loader(trial, config):
+    """Call the appropriate ``trial.suggest_*`` method for a parameter config.
+
+    Supports both current Optuna 4.x types and legacy aliases for backward
+    compatibility with older YAML configs.
+
+    Parameters
+    ----------
+    trial : optuna.Trial
+        The active trial object.
+    config : dict
+        Parameter config with keys:
+
+        - ``"type"`` : one of ``supported_trials``
+        - ``"settings"`` : dict of keyword arguments forwarded to the suggest
+          method (e.g. ``name``, ``low``, ``high``, ``choices``, ``step``).
+
+        Legacy types are remapped internally:
+
+        ==================== ==========================================
+        YAML type            Optuna call
+        ==================== ==========================================
+        ``"loguniform"``     ``suggest_float(..., log=True)``
+        ``"uniform"``        ``suggest_float(...)``
+        ``"discrete_uniform"`` ``suggest_float(..., step=q)``
+        ==================== ==========================================
+
+    Returns
+    -------
+    float, int, or str
+        The value suggested by Optuna for this trial.
+
+    Raises
+    ------
+    AssertionError
+        If ``config["type"]`` is not in ``supported_trials``.
+    """
 
     _type = config["type"]
 

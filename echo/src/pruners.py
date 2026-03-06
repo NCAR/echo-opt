@@ -21,6 +21,27 @@ SUPPORTED_PRUNERS = [
 
 
 def pruners(pruner):
+    """Instantiate an Optuna pruner from a config dict.
+
+    Parameters
+    ----------
+    pruner : dict
+        Must contain a ``"type"`` key matching one of ``SUPPORTED_PRUNERS``.
+        All remaining keys are forwarded as keyword arguments to the pruner
+        constructor. **Note:** the ``"type"`` key is popped from the dict
+        in-place.
+
+    Returns
+    -------
+    optuna.pruners.BasePruner
+        Configured pruner instance.
+
+    Raises
+    ------
+    AssertionError
+        If ``pruner["type"]`` is not in ``SUPPORTED_PRUNERS``.
+    """
+    pruner = dict(pruner)  # copy so the caller's dict is not mutated
     _type = pruner.pop("type")
 
     assert (
@@ -46,6 +67,30 @@ def pruners(pruner):
 
 
 class KerasPruningCallback(object):
+    """Keras-compatible callback that integrates Optuna trial pruning.
+
+    On each epoch end, the monitored metric is reported to the trial. If the
+    trial's pruner decides the trial should be stopped, :class:`optuna.TrialPruned`
+    is raised, which Optuna treats as a pruned (but not failed) trial.
+
+    Parameters
+    ----------
+    trial : optuna.Trial
+        The current Optuna trial.
+    monitor : str
+        The metric key to read from the Keras ``logs`` dict (e.g.
+        ``"val_loss"``).
+    interval : int, optional
+        Epoch interval at which to report; currently unused (every epoch is
+        always reported). Default is 1.
+
+    Examples
+    --------
+    .. code-block:: python
+
+        callbacks = [KerasPruningCallback(trial, monitor="val_loss")]
+        model.fit(..., callbacks=callbacks)
+    """
     def __init__(self, trial, monitor, interval=1):
         self.trial = trial
         self.monitor = monitor

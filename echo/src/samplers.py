@@ -35,6 +35,29 @@ SUPPORTED_SAMPLERS = [
 
 
 def samplers(sampler):
+    """Instantiate an Optuna sampler from a config dict.
+
+    Parameters
+    ----------
+    sampler : dict
+        Must contain a ``"type"`` key matching one of ``SUPPORTED_SAMPLERS``.
+        All remaining keys are forwarded as keyword arguments to the sampler
+        constructor. **Note:** the ``"type"`` key is popped from the dict
+        in-place.
+
+    Returns
+    -------
+    optuna.samplers.BaseSampler
+        Configured sampler instance.
+
+    Raises
+    ------
+    AssertionError
+        If ``sampler["type"]`` is not in ``SUPPORTED_SAMPLERS``.
+    OSError
+        If ``type == "GridSampler"`` and ``"search_space"`` is not provided.
+    """
+    sampler = dict(sampler)  # copy so the caller's dict is not mutated
     _type = sampler.pop("type")
 
     assert (
