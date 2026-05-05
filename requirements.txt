@@ -2,7 +2,7 @@ numpy
 scipy
 matplotlib
 pandas
-optuna<4.0
+optuna>=3.0
 setuptools
 pyyaml
 scikit-learn
