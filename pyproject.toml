@@ -1,3 +1,56 @@
 [build-system]
 requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "echo-opt"
+description = "Earth Computer Hyperparameter Optimization: Distributed hyperparameter optimization on HPC and GPU systems with analysis tools."
+readme = {file = "README.md", content-type = "text/markdown"}
+authors = [
+    {name = "John Schreck"},
+    {name = "David John Gagne"},
+    {name = "Charlie Becker"},
+    {name = "Gabrielle Gantos"},
+    {email = "miles@ucar.edu"},
+]
+license = {file = "LICENSE"}
+keywords = ["machine-learning", "hyperparameter", "gpu"]
+classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+requires-python = ">3.7"
+dynamic = ["version"]
+dependencies = [
+    "numpy",
+    "scipy",
+    "matplotlib",
+    "optuna>=3.0",
+    "setuptools",
+    "pandas",
+    "scikit-learn",
+    "pyarrow",
+    "pyyaml",
+]
+
+[project.urls]
+Homepage = "https://github.com/NCAR/echo-opt"
+
+[project.scripts]
+echo-opt = "echo.optimize:main"
+echo-run = "echo.run:main"
+echo-report = "echo.report:main"
+
+[tool.setuptools]
+zip-safe = true
+include-package-data = true
+
+[tool.setuptools.packages.find]
+include = ["echo", "echo.src"]
+
+[tool.setuptools.dynamic]
+version = {file = "echo/VERSION"}

@@ -1,8 +1,7 @@
 import matplotlib.pyplot as plt
 from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler, LabelEncoder
-import xgboost as xgb
-from sklearn.ensemble import RandomForestRegressor
+from sklearn.ensemble import GradientBoostingRegressor, RandomForestRegressor
 import numpy as np
 from sklearn.inspection import partial_dependence
 import logging
@@ -27,17 +26,13 @@ def partial_dep(fn, input_cols, output_col, verbose=0, model_type='rf'):
         for param, le in hot.items():
             df[param] = le.fit_transform(df[param])
 
-    objective = "reg:squarederror"
     criterion = "squared_error"
-    learning_rate = 0.075
+    learning_rate = 0.07773680788294579
     n_estimators = 1000
     max_depth = 10
-    n_jobs = 8
-    colsample_bytree = 0.8995496645826047
-    gamma = 0.6148001693726943
-    learning_rate = 0.07773680788294579
-    max_depth = 10
+    max_features = 0.8995496645826047
     subsample = 0.7898672617361431
+    n_jobs = 8
     seed = 1000
 
     X = df[input_cols].copy()
@@ -58,29 +53,20 @@ def partial_dep(fn, input_cols, output_col, verbose=0, model_type='rf'):
     #     y_valid = yscaler.transform(np.expand_dims(y_valid, -1))
     #     y_test = yscaler.transform(np.expand_dims(y_test, -1))
 
-    if model_type=='xgb':
-        xgb_model = xgb.XGBRegressor(
-            objective=objective,
+    if model_type == 'gb':
+        gb_model = GradientBoostingRegressor(
             random_state=seed,
-            # gpu_id = device,
             learning_rate=learning_rate,
             n_estimators=n_estimators,
             max_depth=max_depth,
-            colsample_bytree=colsample_bytree,
-            gamma=gamma,
+            max_features=max_features,
             subsample=subsample,
-            n_jobs=n_jobs,
-            early_stopping_rounds=10,
-        )
-
-        xgb_model.fit(
-            x_train,
-            y_train,
-            eval_set=[(x_valid, y_valid)],
             verbose=verbose,
         )
 
-        model = xgb_model
+        gb_model.fit(x_train, y_train)
+
+        model = gb_model
 
     if model_type=='rf':
         rf_model = RandomForestRegressor(

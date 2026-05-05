@@ -6,5 +6,4 @@ optuna>=3.0
 setuptools
 pyyaml
 scikit-learn
-xgboost
 pyarrow
