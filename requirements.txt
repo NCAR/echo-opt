@@ -4,6 +4,7 @@ matplotlib
 pandas
 optuna>=3.0
 setuptools
+setuptools_scm
 pyyaml
 scikit-learn
 pyarrow

@@ -1,5 +1,5 @@
 [build-system]
-requires = ["setuptools"]
+requires = ["setuptools", "setuptools-scm"]
 build-backend = "setuptools.build_meta"
 
 [project]
@@ -35,6 +35,8 @@ dependencies = [
     "scikit-learn",
     "pyarrow",
     "pyyaml",
+    "setuptools",
+    "setuptools_scm"
 ]
 
 [project.urls]
@@ -52,5 +54,5 @@ include-package-data = true
 [tool.setuptools.packages.find]
 include = ["echo", "echo.src"]
 
-[tool.setuptools.dynamic]
-version = {file = "echo/VERSION"}
+[tool.setuptools_scm]
+version_file = "echo/_version.py"
