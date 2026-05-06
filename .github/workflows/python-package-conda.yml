@@ -12,7 +12,7 @@ jobs:
         shell: bash -l {0}
     steps:
     - uses: actions/checkout@v4
-    - uses: conda-incubator/setup-miniconda@v3
+    - uses: conda-incubator/setup-miniconda@v4.0.1
       with:
         miniforge-version: latest
         channel-priority: true
