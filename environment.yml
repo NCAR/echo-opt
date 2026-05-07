@@ -1,23 +1,17 @@
 name: echo
 channels:
  - conda-forge
- - pytorch
 dependencies:
   - python=3.12
   - sphinx
   - pytest
   - setuptools
-  - optuna<4.0
+  - optuna>=3.0
   - numpy
   - scipy
   - matplotlib
   - scikit-learn
-  - jupyter
-  - jupyterlab
-  - jupyter_server
-  - distributed
   - pip
   - pyarrow
-  - xgboost
   - pip:
     - .
